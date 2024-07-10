@@ -1,6 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
+class Escuela(models.Model):
+    nombre = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.nombre
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -20,23 +26,50 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
-    nombre = models.CharField(max_length=50)
-    apellidos = models.CharField(max_length=50)
-    email = models.EmailField(max_length=250, unique=True)
     codigo = models.CharField(max_length=100, unique=True)
+    nombre = models.CharField(max_length=50)
+    email = models.EmailField(max_length=250, unique=True)
     is_admin = models.BooleanField(default=False)
     is_director = models.BooleanField(default=False)
     is_profesor = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, null=True, blank=True)
 
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ['codigo']
 
     def __str__(self):
-        return self.email
+        return f"{self.nombre} {self.apellidos} ({self.email})"
 
     @property
     def is_staff(self):
         return self.is_admin
+
+class Materia(models.Model):
+    codigo = models.CharField(max_length=100, unique=True)
+    nombre = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.nombre
+
+class CalificacionesCualitativas(models.Model):
+    docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='calificaciones_cualitativas')
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
+    periodo = models.CharField(max_length=20)
+    comentario = models.TextField()
+    promedio = models.FloatField()
+
+class CalificacionesCuantitativas(models.Model):
+    docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='calificaciones_cuantitativas')
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
+    periodo = models.CharField(max_length=20)
+    promedio = models.FloatField()
+
+class PromedioCalificaciones(models.Model):
+    docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='promedios_calificaciones')
+    promedio = models.FloatField()
+    promedio_cuant = models.FloatField()
+    promedio_cual = models.FloatField()
+    periodo = models.CharField(max_length=20)
