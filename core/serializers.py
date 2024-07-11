@@ -12,7 +12,7 @@ class AuthTokenSerializer(serializers.Serializer):
 class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
-        fields = ['id', 'nombre', 'apellidos', 'email', 'codigo', 'password', 'is_admin', 'is_director', 'is_profesor']
+        fields = ['id', 'nombre', 'email', 'codigo', 'password', 'is_admin', 'is_director', 'is_profesor']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
@@ -20,7 +20,6 @@ class UsuarioSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
             nombre=validated_data['nombre'],
-            apellidos=validated_data['apellidos'],
             codigo=validated_data['codigo'],
             is_admin=validated_data.get('is_admin', False),
             is_director=validated_data.get('is_director', False),
