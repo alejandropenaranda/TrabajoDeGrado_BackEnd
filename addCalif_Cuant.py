@@ -15,6 +15,18 @@ def insertar_calif_cualitativas_desde_excel(archivo):
     for index, row in df.iterrows():
         periodo = row['periodo']
         promedio = row['promedio']
+        pregunta_9 = row['pregunta_9']
+        pregunta_10 = row['pregunta_10']
+        pregunta_11 = row['pregunta_11']
+        pregunta_12 = row['pregunta_12']
+        pregunta_13 = row['pregunta_13']
+        pregunta_14 = row['pregunta_14']
+        pregunta_15 = row['pregunta_15']
+        pregunta_16 = row['pregunta_16']
+        pregunta_17 = row['pregunta_17']
+        pregunta_18 = row['pregunta_18']
+        pregunta_19 = row['pregunta_19']
+        pregunta_20 = row['pregunta_20']
         codigo_docente = row['docente_id']
         codigo_materia = row['materia_id']
  
@@ -36,6 +48,18 @@ def insertar_calif_cualitativas_desde_excel(archivo):
         califCual = CalificacionesCuantitativas(
             periodo=periodo,
             promedio=promedio,
+            pregunta_9 = pregunta_9,
+            pregunta_10 = pregunta_10,
+            pregunta_11 = pregunta_11,
+            pregunta_12 = pregunta_12,
+            pregunta_13 = pregunta_13,
+            pregunta_14 = pregunta_14,
+            pregunta_15 = pregunta_15,
+            pregunta_16 = pregunta_16,
+            pregunta_17 = pregunta_17,
+            pregunta_18 = pregunta_18,
+            pregunta_19 = pregunta_19,
+            pregunta_20 = pregunta_20,
             docente_id=docente.id,
             materia_id=materia.id
         )
@@ -46,6 +70,6 @@ def insertar_calif_cualitativas_desde_excel(archivo):
     print(f'Se han insertado {len(df)} registros de calificaciones cuantitativas desde el archivo {archivo}')
 
 if __name__ == '__main__':
-    archivo = './Datasets/calificaciones_cuantitativas.xlsx'  # Ruta al archivo Excel
+    archivo = './Datasets/calificaciones_cuantitativas_N.xlsx'  # Ruta al archivo Excel
     insertar_calif_cualitativas_desde_excel(archivo)
 

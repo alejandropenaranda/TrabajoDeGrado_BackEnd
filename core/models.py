@@ -65,6 +65,18 @@ class CalificacionesCuantitativas(models.Model):
     docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='calificaciones_cuantitativas')
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
     periodo = models.CharField(max_length=20)
+    pregunta_9 = models.FloatField()
+    pregunta_10 = models.FloatField()
+    pregunta_11 = models.FloatField()
+    pregunta_12 = models.FloatField()
+    pregunta_13 = models.FloatField()
+    pregunta_14 = models.FloatField()
+    pregunta_15 = models.FloatField()
+    pregunta_16 = models.FloatField()
+    pregunta_17 = models.FloatField()
+    pregunta_18 = models.FloatField()
+    pregunta_19 = models.FloatField()
+    pregunta_20 = models.FloatField()
     promedio = models.FloatField()
 
 class PromedioCalificaciones(models.Model):
