@@ -97,3 +97,20 @@ class PromedioCalificaciones(models.Model):
     prom_pregunta_19 = models.FloatField(default=0)
     prom_pregunta_20 = models.FloatField(default=0)
     periodo = models.CharField(max_length=20)
+
+class FortalezasDebilidadesCuantitativas(models.Model):
+    docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='fortalezas_debilidades_cuantitativas')
+    prom_pregunta_9 = models.FloatField(default=0)
+    prom_pregunta_10 = models.FloatField(default=0)
+    prom_pregunta_11 = models.FloatField(default=0)
+    prom_pregunta_12 = models.FloatField(default=0)
+    prom_pregunta_13 = models.FloatField(default=0)
+    prom_pregunta_14 = models.FloatField(default=0)
+    prom_pregunta_15 = models.FloatField(default=0)
+    prom_pregunta_16 = models.FloatField(default=0)
+    prom_pregunta_17 = models.FloatField(default=0)
+    prom_pregunta_18 = models.FloatField(default=0)
+    prom_pregunta_19 = models.FloatField(default=0)
+    prom_pregunta_20 = models.FloatField(default=0)
+    valoraciones = models.JSONField()
+    
