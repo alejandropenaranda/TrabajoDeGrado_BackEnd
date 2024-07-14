@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Usuario
+from .models import Usuario, PromedioCalificaciones,Escuela 
 
 class AuthTokenSerializer(serializers.Serializer):
     """serializer for the user authentication objectt"""
@@ -9,10 +9,16 @@ class AuthTokenSerializer(serializers.Serializer):
         trim_whitespace=False
     )
 
+class SchoolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Escuela
+        fields = ['id','nombre']
+
 class UsuarioSerializer(serializers.ModelSerializer):
+    escuela = SchoolSerializer(many=False, read_only = True)
     class Meta:
         model = Usuario
-        fields = ['id', 'nombre', 'email', 'codigo', 'password', 'is_admin', 'is_director', 'is_profesor']
+        fields = ['id', 'nombre', 'email', 'codigo', 'password', 'is_admin', 'is_director', 'is_profesor', 'escuela']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
@@ -27,9 +33,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
         )
         return user
 
+class AverageGradesSerizalizer(serializers.ModelSerializer):
+    class Meta:
+        model = PromedioCalificaciones
+        fields = ['id','periodo','docente_id','promedio','promedio_cuant','promedio_cual']
 
-# class UserSerializer(serializers.ModelSerializer):
-
-#     class Meta:
-#         model = User
-#         fields = ['id', 'username', 'email', 'password']

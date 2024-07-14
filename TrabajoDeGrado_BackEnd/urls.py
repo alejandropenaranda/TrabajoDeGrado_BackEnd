@@ -20,7 +20,8 @@ from core import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('core/login', views.login_ex),
-    path('core/register', views.register_ex),
-    path('core/profile', views.profile_ex),
+    path('core/login', views.user_login),
+    path('core/register', views.user_register),
+    path('core/profile', views.user_profile),
+    path('core/average_grades', views.get_average_grades),
 ]
