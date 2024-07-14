@@ -24,4 +24,5 @@ urlpatterns = [
     path('core/register', views.user_register),
     path('core/profile', views.user_profile),
     path('core/average_grades', views.get_average_grades),
+    path('core/cuant_fort_deb', views.get_cuant_fort_dev)
 ]

@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import AuthTokenSerializer, UsuarioSerializer,AverageGradesSerizalizer
+from .serializers import AuthTokenSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer
 
 from rest_framework.authtoken.models import Token
 from rest_framework import status
@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework. authentication import TokenAuthentication
 
 from django.contrib.auth.models import User
-from .models import Usuario, PromedioCalificaciones
+from .models import Usuario, PromedioCalificaciones,FortalezasDebilidadesCuantitativas
 from django.shortcuts import get_object_or_404
 
 @api_view(['POST'])
@@ -74,3 +74,19 @@ def get_average_grades(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+@api_view(['GET'])
+def get_cuant_fort_dev(request):
+    try:
+        docente_id = request.query_params.get('docente_id')
+        fortdeb = FortalezasDebilidadesCuantitativas.objects.filter(docente_id=docente_id).first()
+
+        if not fortdeb:
+            return Response({'error': 'No existen fortalezas y debilidades cuantitativas para el docente con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CuantFortDebSerializer(fortdeb)  # Serializa el objeto individual
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
