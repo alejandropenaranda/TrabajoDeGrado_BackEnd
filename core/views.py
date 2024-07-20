@@ -13,6 +13,10 @@ from django.db.models import Avg, Q
 from .models import Usuario, PromedioCalificaciones,FortalezasDebilidadesCuantitativas, CalificacionesCualitativas
 from django.shortcuts import get_object_or_404
 
+import base64
+from io import BytesIO
+from collections import Counter
+from wordcloud import WordCloud
 
 # Este metodo se utiliza para autenticarse en la aplicación
 @api_view(['POST'])
@@ -232,6 +236,41 @@ def get_cuantitative_average_grades(request):
             'promedio_docente': promedio_docente if promedio_docente is not None else 'No se encontraron calificaciones para el docente proporcionado.'
         }
         return Response(response_data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+# Metodo para enviar wordcloud
+def generate_wordcloud(text):
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text)
+    buffer = BytesIO()
+    wordcloud.to_image().save(buffer, format='PNG')
+    return base64.b64encode(buffer.getvalue()).decode()
+
+@api_view(['GET'])
+def get_wordcloud_and_frequent_words(request):
+    try:
+        docente_id = request.query_params.get('docente_id')
+        if not docente_id:
+            return Response({'error': 'El parámetro docente_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        docente = get_object_or_404(Usuario, pk=docente_id)
+        comentarios = CalificacionesCualitativas.objects.filter(docente=docente).values_list('comentario_limpio', flat=True)
+        
+        if not comentarios:
+            return Response({'error': 'No se encontraron comentarios para el docente proporcionado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        texto_completo = " ".join(comentarios)
+        wordcloud_base64 = generate_wordcloud(texto_completo)
+        
+        palabras = texto_completo.split()
+        conteo_palabras = Counter(palabras)
+        palabras_mas_frecuentes = conteo_palabras.most_common(10)
+        
+        return Response({
+            'wordcloud': wordcloud_base64,
+            'palabras_mas_frecuentes': palabras_mas_frecuentes
+        }, status=status.HTTP_200_OK)
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

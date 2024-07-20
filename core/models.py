@@ -59,7 +59,11 @@ class CalificacionesCualitativas(models.Model):
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
     periodo = models.CharField(max_length=20)
     comentario = models.TextField()
+    comentario_limpio = models.TextField(blank=True, null=True)
     promedio = models.FloatField()
+
+    def __str__(self):
+        return self.comentario
 
 class CalificacionesCuantitativas(models.Model):
     docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='calificaciones_cuantitativas')
