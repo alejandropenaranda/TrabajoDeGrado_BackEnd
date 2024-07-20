@@ -81,6 +81,7 @@ class CalificacionesCuantitativas(models.Model):
 
 class PromedioCalificaciones(models.Model):
     docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='promedios_calificaciones')
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE)
     promedio = models.FloatField()
     promedio_cual = models.FloatField()
     promedio_cuant = models.FloatField()

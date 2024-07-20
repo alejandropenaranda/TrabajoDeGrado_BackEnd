@@ -23,6 +23,18 @@ urlpatterns = [
     path('core/login', views.user_login),
     path('core/register', views.user_register),
     path('core/profile', views.user_profile),
+
+    #Esta es la url que muestra la data de los docentes para las tablas 
     path('core/average_grades', views.get_average_grades),
-    path('core/cuant_fort_deb', views.get_cuant_fort_dev)
+
+    #Esta url es para fortalezas y debilidades cuantitativas
+    path('core/cuant_fort_deb', views.get_cuant_fort_dev),
+
+    #Esta url es para peor y mejor comentario
+    path('core/mejor_peor_comentario', views.get_best_and_worst_comment),
+
+    # Estos son las urls para los graficos de barras
+    path('core/prom_fac_escuela', views.get_average_grades_school_and_overall),
+    path('core/cual_prom', views.get_qualitative_average_grades),
+    path('core/cuant_prom', views.get_cuantitative_average_grades)
 ]
