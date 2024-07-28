@@ -30,6 +30,8 @@ urlpatterns = [
     #Esta url es para fortalezas y debilidades cuantitativas
     path('core/cuant_fort_deb', views.get_cuant_fort_dev),
 
+    path('core/cual_fort_deb', views.get_strengths_weaknesses),
+
     #Esta url es para peor y mejor comentario
     path('core/mejor_peor_comentario', views.get_best_and_worst_comment),
 
@@ -38,5 +40,5 @@ urlpatterns = [
     path('core/cual_prom', views.get_qualitative_average_grades),
     path('core/cuant_prom', views.get_cuantitative_average_grades),
 
-    path('analizar_comentarios', views.get_wordcloud_and_frequent_words),
+    path('core/analizar_comentarios', views.get_wordcloud_and_frequent_words),
 ]

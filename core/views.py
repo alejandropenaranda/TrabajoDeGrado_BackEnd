@@ -18,6 +18,9 @@ from io import BytesIO
 from collections import Counter
 from wordcloud import WordCloud
 
+# import openai
+import tiktoken
+
 # Este metodo se utiliza para autenticarse en la aplicación
 @api_view(['POST'])
 def user_login(request):
@@ -270,6 +273,86 @@ def get_wordcloud_and_frequent_words(request):
         return Response({
             'wordcloud': wordcloud_base64,
             'palabras_mas_frecuentes': palabras_mas_frecuentes
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+# METODO PARA ESTRAER FORTALEZAS Y DEBILIDADES DE LOS COMENTARIOS USANDO MODELOS DE LENGUAJE.
+
+# openai.api_key = 'tu_api_key'
+enc = tiktoken.encoding_for_model("gpt-4")
+
+def contar_tokens(texto):
+    tokens = enc.encode(texto)
+    return len(tokens)
+
+def analizar_comentarios(comentarios):
+    prompt_base = (
+        "Analiza los siguientes comentarios de estudiantes sobre un docente. Identifica las fortalezas y debilidades mencionadas. Devuelve una estructura de datos con las fortalezas y debilidades y asigna un valor de 1 a 5 donde 1 es Muy Pobre, 2 es Pobre, 3 es Neutro, 4 es Bueno, y 5 es Muy Bueno.\n\n"
+        "Comentarios:\n"
+    )
+    prompt_ejemplo = "\nEstructura de datos esperada:\n{\n    \"fortalezas\": {\"fortaleza 1\": 4, \"fortaleza 2\": 5, ...},\n    \"debilidades\": {\"debilidad 1\": 2, \"debilidad 2\": 1, ...}\n}"
+
+    tokens_prompt = contar_tokens(prompt_base) + contar_tokens(prompt_ejemplo)
+    max_tokens = 6144
+
+    comentarios_incluidos = []
+    tokens_comentarios = 0
+
+    for comentario in comentarios:
+        tokens_comentario = contar_tokens(comentario)
+        if tokens_prompt + tokens_comentarios + tokens_comentario < max_tokens:
+            comentarios_incluidos.append(comentario)
+            tokens_comentarios += tokens_comentario
+        else:
+            break
+
+    prompt = prompt_base
+    for i, comentario in enumerate(comentarios_incluidos, 1):
+        prompt += f" {i}. {comentario}\n"
+    prompt += prompt_ejemplo
+
+    # response = openai.Completion.create(
+    #     engine="gpt-4",
+    #     prompt=prompt,
+    #     max_tokens=1500,
+    #     n=1,
+    #     stop=None,
+    #     temperature=0.7,
+    # )
+
+    # return response.choices[0].text.strip()
+    return prompt
+
+#Metodo que analiza los 10 comentario mas relevantes de cada docente y determina sus fortalezas y debilidades
+@api_view(['GET'])
+def get_strengths_weaknesses(request):
+    try:
+        docente_id = request.query_params.get('docente_id')
+        if not docente_id:
+            return Response({'error': 'El parámetro docente_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        docente = get_object_or_404(Usuario, pk=docente_id)
+        comentarios = CalificacionesCualitativas.objects.filter(docente=docente).order_by('promedio')
+        
+        if not comentarios:
+            return Response({'error': 'No se encontraron comentarios para el docente proporcionado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        mejores_comentarios = list(comentarios.order_by('-promedio')[:5].values_list('comentario', flat=True))
+        peores_comentarios = list(comentarios.order_by('promedio')[:5].values_list('comentario', flat=True))
+        
+        todos_comentarios = mejores_comentarios + peores_comentarios
+        if len(todos_comentarios) < 10:
+            todos_comentarios = list(comentarios.values_list('comentario', flat=True))
+        
+        resultado = analizar_comentarios(todos_comentarios)
+
+        print(contar_tokens(resultado))
+        
+        return Response({
+            'resultado': resultado
         }, status=status.HTTP_200_OK)
     
     except Exception as e:
