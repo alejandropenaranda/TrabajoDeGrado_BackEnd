@@ -118,4 +118,9 @@ class FortalezasDebilidadesCuantitativas(models.Model):
     prom_pregunta_19 = models.FloatField(default=0)
     prom_pregunta_20 = models.FloatField(default=0)
     valoraciones = models.JSONField()
+
+class FortalezasDebilidadesCualitativas(models.Model):
+    docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='fortalezas_debilidades_cualitativas')
+    prompt = models.TextField()
+    valoraciones = models.TextField()
     

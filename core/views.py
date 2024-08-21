@@ -10,13 +10,15 @@ from rest_framework. authentication import TokenAuthentication
 
 from django.contrib.auth.models import User
 from django.db.models import Avg, Q
-from .models import Usuario, PromedioCalificaciones,FortalezasDebilidadesCuantitativas, CalificacionesCualitativas
+from .models import Usuario, PromedioCalificaciones,FortalezasDebilidadesCuantitativas, CalificacionesCualitativas, FortalezasDebilidadesCualitativas
 from django.shortcuts import get_object_or_404
 
 import base64
 from io import BytesIO
 from collections import Counter
 from wordcloud import WordCloud
+
+from .utils.fortalezas_debilidades.cual_fort_deb import laguageModel
 
 # import openai
 import tiktoken
@@ -85,7 +87,7 @@ def get_average_grades(request):
     
 # Este metodo retorna las fortalezas y debilidades cuantitaticas del docente con el id engresado   
 @api_view(['GET'])
-def get_cuant_fort_dev(request):
+def get_cuant_fort_deb(request):
     try:
         docente_id = request.query_params.get('docente_id')
         fortdeb = FortalezasDebilidadesCuantitativas.objects.filter(docente_id=docente_id).first()
@@ -281,6 +283,23 @@ def get_wordcloud_and_frequent_words(request):
 
 # METODO PARA ESTRAER FORTALEZAS Y DEBILIDADES DE LOS COMENTARIOS USANDO MODELOS DE LENGUAJE.
 
+import re
+import json
+
+def extraer_json(respuesta):
+    # Utiliza una expresión regular para encontrar la estructura JSON en el texto
+    json_match = re.search(r'\{.*\}', respuesta, re.DOTALL)
+    if json_match:
+        json_str = json_match.group()
+        try:
+            # Intenta cargar la cadena como JSON
+            datos = json.loads(json_str)
+            return datos
+        except json.JSONDecodeError:
+            return respuesta  # Retorna un JSON vacío si no se puede decodificar
+    else:
+        return respuesta  # Retorna un JSON vacío si no se encuentra una estructura JSON
+
 # openai.api_key = 'tu_api_key'
 enc = tiktoken.encoding_for_model("gpt-4")
 
@@ -290,7 +309,7 @@ def contar_tokens(texto):
 
 def analizar_comentarios(comentarios):
     prompt_base = (
-        "Analiza los siguientes comentarios de estudiantes sobre un docente. Identifica las fortalezas y debilidades mencionadas. Devuelve una estructura de datos con las fortalezas y debilidades y asigna un valor de 1 a 5 donde 1 es Muy Pobre, 2 es Pobre, 3 es Neutro, 4 es Bueno, y 5 es Muy Bueno.\n\n"
+        "Analiza los siguientes comentarios sobre el desempeño de un docente. Identifica cuáles son las fortalezas y debilidades del docente y devuelve una estructura de datos que contenga las fortalezas y debilidades con un valor asignado de la siguiente escala: 1 es Muy Pobre, 2 es Pobre, 3 es Neutro, 4 es Bueno, y 5 es Muy Bueno.\n\n"
         "Comentarios:\n"
     )
     prompt_ejemplo = "\nEstructura de datos esperada:\n{\n    \"fortalezas\": {\"fortaleza 1\": 4, \"fortaleza 2\": 5, ...},\n    \"debilidades\": {\"debilidad 1\": 2, \"debilidad 2\": 1, ...}\n}"
@@ -322,15 +341,17 @@ def analizar_comentarios(comentarios):
     #     stop=None,
     #     temperature=0.7,
     # )
-
     # return response.choices[0].text.strip()
-    return prompt
+
+    response = extraer_json(laguageModel(prompt))
+    return prompt, response
 
 #Metodo que analiza los 10 comentario mas relevantes de cada docente y determina sus fortalezas y debilidades
-@api_view(['GET'])
-def get_strengths_weaknesses(request):
+@api_view(['POST'])
+def find_strengths_weaknesses(request):
     try:
-        docente_id = request.query_params.get('docente_id')
+        #docente_id = request.query_params.get('docente_id')
+        docente_id = request.data.get('docente_id')
         if not docente_id:
             return Response({'error': 'El parámetro docente_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -347,9 +368,17 @@ def get_strengths_weaknesses(request):
         if len(todos_comentarios) < 10:
             todos_comentarios = list(comentarios.values_list('comentario', flat=True))
         
-        resultado = analizar_comentarios(todos_comentarios)
+        prompt, resultado = analizar_comentarios(todos_comentarios)
 
-        print(contar_tokens(resultado))
+        registro, creado = FortalezasDebilidadesCualitativas.objects.get_or_create(
+            docente=docente,
+            defaults={'prompt': prompt, 'valoraciones': resultado}
+        )
+
+        if not creado:
+            registro.prompt = prompt
+            registro.valoraciones = resultado
+            registro.save()
         
         return Response({
             'resultado': resultado
@@ -357,3 +386,56 @@ def get_strengths_weaknesses(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['POST'])
+def find_strengths_weaknesses_all_teachers(request):
+    try:
+        # docentes = Usuario.objects.all()
+        docentes = Usuario.objects.filter(id__gte=69)
+
+        for docente in docentes:
+            comentarios = CalificacionesCualitativas.objects.filter(docente=docente).order_by('promedio')
+            
+            if not comentarios.exists():
+                continue 
+            
+            mejores_comentarios = list(comentarios.order_by('-promedio')[:5].values_list('comentario', flat=True))
+            peores_comentarios = list(comentarios.order_by('promedio')[:5].values_list('comentario', flat=True))
+            
+            todos_comentarios = mejores_comentarios + peores_comentarios
+            if len(todos_comentarios) < 10:
+                todos_comentarios = list(comentarios.values_list('comentario', flat=True))
+            
+            prompt, resultado = analizar_comentarios(todos_comentarios)
+
+            registro, creado = FortalezasDebilidadesCualitativas.objects.get_or_create(
+                docente=docente,
+                defaults={'prompt': prompt, 'valoraciones': resultado}
+            )
+
+            if not creado:
+                registro.prompt = prompt
+                registro.valoraciones = resultado
+                registro.save()
+            
+        return Response({}, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+# Este metodo retorna las fortalezas y debilidades cuantitaticas del docente con el id engresado   
+@api_view(['GET'])
+def get_cual_fort_deb(request):
+    try:
+        docente_id = request.query_params.get('docente_id')
+        fortdeb = FortalezasDebilidadesCualitativas.objects.filter(docente_id=docente_id).first()
+
+        if not fortdeb:
+            return Response({'error': 'No existen fortalezas y debilidades cualitativas para el docente con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CuantFortDebSerializer(fortdeb)  # Serializa el objeto individual
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

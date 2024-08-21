@@ -28,9 +28,15 @@ urlpatterns = [
     path('core/average_grades', views.get_average_grades),
 
     #Esta url es para fortalezas y debilidades cuantitativas
-    path('core/cuant_fort_deb', views.get_cuant_fort_dev),
+    path('core/cuant_fort_deb', views.get_cuant_fort_deb),
 
-    path('core/cual_fort_deb', views.get_strengths_weaknesses),
+    # Esta url es para identificar las fortalezas y debilidades cualitativas de un docente
+    path('core/cual_fort_deb', views.get_cual_fort_deb),
+
+    # Esta url es para identificar las fortalezas y debilidades cualitativas de un docente
+    path('core/cual_analysis', views.find_strengths_weaknesses),
+    # Esta url es para identificar las fortalezas y debilidades cualitativas de todos los docente
+    path('core/cual_analysis_all', views.find_strengths_weaknesses_all_teachers),
 
     #Esta url es para peor y mejor comentario
     path('core/mejor_peor_comentario', views.get_best_and_worst_comment),
