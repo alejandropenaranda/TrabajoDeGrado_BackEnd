@@ -28,16 +28,19 @@ import tiktoken
 def user_login(request):
     serializer = AuthTokenSerializer(data=request.data)
     if serializer.is_valid():
-        user = get_object_or_404(Usuario, email=serializer.validated_data['email'])
+        try:
+            user = Usuario.objects.get(email=serializer.validated_data['email'])
+        except Usuario.DoesNotExist:
+            return Response({"error": "Credenciales Invalidas"}, status=status.HTTP_400_BAD_REQUEST)
 
         if not user.check_password(serializer.validated_data['password']):
-            return Response({"error": "Invalid password"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Credenciales Invalidas"}, status=status.HTTP_400_BAD_REQUEST)
         
         token, created = Token.objects.get_or_create(user=user)
 
         user_serializer = UsuarioSerializer(instance=user)
         return Response({'token': token.key, 'user': user_serializer.data}, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 # Este metodo se utiliza para registrar nuevos usuarios. Requiere autenticación
 @api_view(['POST'])
@@ -287,18 +290,17 @@ import re
 import json
 
 def extraer_json(respuesta):
-    # Utiliza una expresión regular para encontrar la estructura JSON en el texto
     json_match = re.search(r'\{.*\}', respuesta, re.DOTALL)
+    print(json_match)
     if json_match:
         json_str = json_match.group()
         try:
-            # Intenta cargar la cadena como JSON
             datos = json.loads(json_str)
             return datos
         except json.JSONDecodeError:
-            return respuesta  # Retorna un JSON vacío si no se puede decodificar
+            return respuesta
     else:
-        return respuesta  # Retorna un JSON vacío si no se encuentra una estructura JSON
+        return respuesta 
 
 # openai.api_key = 'tu_api_key'
 enc = tiktoken.encoding_for_model("gpt-4")
@@ -333,6 +335,11 @@ def analizar_comentarios(comentarios):
         prompt += f" {i}. {comentario}\n"
     prompt += prompt_ejemplo
 
+    response = extraer_json(laguageModel(prompt))
+    return prompt, response
+
+
+
     # response = openai.Completion.create(
     #     engine="gpt-4",
     #     prompt=prompt,
@@ -343,8 +350,7 @@ def analizar_comentarios(comentarios):
     # )
     # return response.choices[0].text.strip()
 
-    response = extraer_json(laguageModel(prompt))
-    return prompt, response
+    
 
 #Metodo que analiza los 10 comentario mas relevantes de cada docente y determina sus fortalezas y debilidades
 @api_view(['POST'])
@@ -390,8 +396,7 @@ def find_strengths_weaknesses(request):
 @api_view(['POST'])
 def find_strengths_weaknesses_all_teachers(request):
     try:
-        # docentes = Usuario.objects.all()
-        docentes = Usuario.objects.filter(id__gte=69)
+        docentes = Usuario.objects.all()
 
         for docente in docentes:
             comentarios = CalificacionesCualitativas.objects.filter(docente=docente).order_by('promedio')
@@ -432,7 +437,7 @@ def get_cual_fort_deb(request):
         fortdeb = FortalezasDebilidadesCualitativas.objects.filter(docente_id=docente_id).first()
 
         if not fortdeb:
-            return Response({'error': 'No existen fortalezas y debilidades cualitativas para el docente con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'No se encontraton registros para el docente con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = CuantFortDebSerializer(fortdeb)  # Serializa el objeto individual
         return Response(serializer.data, status=status.HTTP_200_OK)
