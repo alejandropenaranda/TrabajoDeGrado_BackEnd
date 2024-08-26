@@ -256,6 +256,8 @@ def generate_wordcloud(text):
     return base64.b64encode(buffer.getvalue()).decode()
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def get_wordcloud_and_frequent_words(request):
     try:
         docente_id = request.query_params.get('docente_id')
