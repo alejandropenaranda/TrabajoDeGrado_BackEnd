@@ -158,8 +158,11 @@ def get_average_grades_school_and_overall(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
 # Metodo para obtener la información sobre promedios cualitativos de facultad, docente y escuela
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def get_qualitative_average_grades(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -205,6 +208,8 @@ def get_qualitative_average_grades(request):
     
 # Metodo para obtener la información sobre promedios cuantitativos de facultad, docente y escuela
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def get_cuantitative_average_grades(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -231,7 +236,7 @@ def get_cuantitative_average_grades(request):
                 docente__escuela_id=escuela_id,
             ).aggregate(promedio=Avg('promedio_cuant'))['promedio']
 
-        # Promedio cualitativo del docente específico
+        # Promedio cuantitativo del docente específico
         promedio_docente = PromedioCalificaciones.objects.filter( 
             ~Q(promedio_cual=None), 
             ~Q(promedio_cual=0),
