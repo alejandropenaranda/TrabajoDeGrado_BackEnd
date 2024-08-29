@@ -135,6 +135,38 @@ def get_best_and_worst_comment(request):
 # cada vez que se de una actualización de datos?
 
 
+#Metodo que retorna el los promedios generales, cuantitativos y cualitativos del docente ingresado
+
+@api_view(['GET'])
+def get_average_grades(request):
+    try:
+        docente_id = request.query_params.get('docente_id')
+        if not docente_id:
+            return Response({'error': 'El parámetro docente_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Filtrar las calificaciones por docente_id
+        calificaciones = PromedioCalificaciones.objects.filter(docente_id=docente_id)
+        
+        # Obtener promedios
+        
+        promedio_cual = calificaciones.filter(promedio_cual__gt=0).aggregate(promedio_cual=Avg('promedio_cual'))['promedio_cual']
+        promedio_cuant = calificaciones.filter(promedio_cuant__gt=0).aggregate(promedio_cuant=Avg('promedio_cuant'))['promedio_cuant']
+        promedio = (promedio_cual + promedio_cuant)/2
+
+        # Verificar si existen registros
+        if promedio is None or promedio_cual is None or promedio_cuant is None:
+            return Response({'error': 'No se encontraron calificaciones para el docente proporcionado.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Retornar los valores promedio
+        return Response({
+            'promedio': promedio,
+            'promedio_cual': promedio_cual,
+            'promedio_cuant': promedio_cuant
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 # Metodo que retorna el valor de calificación promedio de toda una escuela y el valor promedio de toda la facultad
 @api_view(['GET'])
 def get_average_grades_school_and_overall(request):
