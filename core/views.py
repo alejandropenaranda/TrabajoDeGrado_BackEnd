@@ -66,9 +66,9 @@ def user_profile(request):
     return Response({'user':serializer.data},status=status.HTTP_200_OK)
 
 
-# Este metodo retorna las calificaciones promedio de los docentees de la escuela ingresada o la información de un docente especifico
+# Este metodo retorna las calificaciones promedio de los docentes de la escuela ingresada o la información de un docente especifico
 @api_view(['GET'])
-def get_average_grades(request):
+def get_average_grades_registers(request):
     try:
         docente_id = request.query_params.get('docente_id')
         escuela_id = request.query_params.get('escuela_id')
@@ -80,7 +80,7 @@ def get_average_grades(request):
         elif escuela_id:
             promedios = PromedioCalificaciones.objects.filter(docente__escuela_id=escuela_id)
         else:
-            return Response({'error': 'debe ingresar una parametro valido para llevar a cabo la consulta'}, status=status.HTTP_400_BAD_REQUEST)
+            promedios = PromedioCalificaciones.objects.all()
 
         serializer = AverageGradesSerizalizer(promedios, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

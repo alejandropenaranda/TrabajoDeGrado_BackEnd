@@ -40,10 +40,18 @@ class SubjectSerialize(serializers.ModelSerializer):
 
 
 class AverageGradesSerizalizer(serializers.ModelSerializer):
+    docente_nombre = serializers.SerializerMethodField()
+    escuela = serializers.SerializerMethodField()
     materia = SubjectSerialize(many = False, read_only=True)
     class Meta:
         model = PromedioCalificaciones
-        fields = ['id','periodo','docente_id','promedio','promedio_cuant','promedio_cual','materia']
+        fields = ['id', 'periodo', 'docente_id', 'promedio', 'promedio_cuant', 'promedio_cual', 'materia', 'docente_nombre', 'escuela']
+
+    def get_docente_nombre(self, obj):
+        return obj.docente.nombre if obj.docente else None
+
+    def get_escuela(self, obj):
+        return obj.docente.escuela.nombre if obj.docente and obj.docente.escuela else None
 
 class CuantFortDebSerializer(serializers.ModelSerializer):
     class Meta:
