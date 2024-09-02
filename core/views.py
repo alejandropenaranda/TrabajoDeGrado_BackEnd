@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import AuthTokenSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer, CalificacionesCualitativasSerializer
+from .serializers import AuthTokenSerializer, CualFortDebSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer, CalificacionesCualitativasSerializer
 
 from rest_framework.authtoken.models import Token
 from rest_framework import status
@@ -468,7 +468,7 @@ def find_strengths_weaknesses_all_teachers(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
 
-# Este metodo retorna las fortalezas y debilidades cuantitaticas del docente con el id engresado   
+
 @api_view(['GET'])
 def get_cual_fort_deb(request):
     try:
@@ -476,10 +476,21 @@ def get_cual_fort_deb(request):
         fortdeb = FortalezasDebilidadesCualitativas.objects.filter(docente_id=docente_id).first()
 
         if not fortdeb:
-            return Response({'error': 'No se encontraton registros para el docente con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'No se encontraron registros para el docente con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CuantFortDebSerializer(fortdeb)  # Serializa el objeto individual
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Serializar el objeto
+        serializer = CualFortDebSerializer(fortdeb)
+
+        # Convertir valoraciones a JSON válido
+        data = serializer.data
+        if isinstance(data.get('valoraciones'), str):
+            try:
+                # Reemplazar comillas simples por comillas dobles en el string JSON
+                data['valoraciones'] = json.loads(data['valoraciones'].replace("'", '"'))
+            except json.JSONDecodeError:
+                return Response({'error': 'El formato de valoraciones es inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data, status=status.HTTP_200_OK)
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
