@@ -53,4 +53,6 @@ urlpatterns = [
     path('core/cuant_prom', views.get_cuantitative_average_grades),
 
     path('core/analizar_comentarios', views.get_wordcloud_and_frequent_words),
+
+    path('core/techer_ranking', views.get_top_10_docentes_by_school)
 ]

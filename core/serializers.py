@@ -69,3 +69,10 @@ class CalificacionesCualitativasSerializer(serializers.ModelSerializer):
     class Meta:
         model = CalificacionesCualitativas
         fields = ['docente_id', 'materia', 'periodo', 'comentario', 'promedio']
+
+class Top10Serializer(serializers.ModelSerializer):
+    docente_nombre = serializers.CharField(source='docente.nombre')
+
+    class Meta:
+        model = PromedioCalificaciones
+        fields = ['docente_nombre', 'promedio']

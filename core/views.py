@@ -31,10 +31,10 @@ def user_login(request):
         try:
             user = Usuario.objects.get(email=serializer.validated_data['email'])
         except Usuario.DoesNotExist:
-            return Response({"error": "Credenciales Invalidas"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Credenciales incorrectas"}, status=status.HTTP_400_BAD_REQUEST)
 
         if not user.check_password(serializer.validated_data['password']):
-            return Response({"error": "Credenciales Invalidas"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Credenciales incorrectas"}, status=status.HTTP_400_BAD_REQUEST)
         
         token, created = Token.objects.get_or_create(user=user)
 
@@ -168,6 +168,28 @@ def get_average_grades(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 # Metodo que retorna el valor de calificación promedio de toda una escuela y el valor promedio de toda la facultad
+# @api_view(['GET'])
+# def get_average_grades_school_and_overall(request):
+#     try:
+#         escuela_id = request.query_params.get('escuela_id')
+#         if not escuela_id:
+#             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+#         promedio_general = PromedioCalificaciones.objects.aggregate(promedio=Avg('promedio'))['promedio']
+        
+#         promedio_escuela = PromedioCalificaciones.objects.filter(docente__escuela_id=escuela_id).aggregate(promedio=Avg('promedio'))['promedio']
+
+#         if promedio_escuela is None:
+#             promedio_escuela = 'No se encontraron calificaciones para la escuela proporcionada.'
+        
+#         return Response({
+#             'promedio_facultad': promedio_general,
+#             'promedio_escuela': promedio_escuela
+#         }, status=status.HTTP_200_OK)
+    
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET'])
 def get_average_grades_school_and_overall(request):
     try:
@@ -175,21 +197,35 @@ def get_average_grades_school_and_overall(request):
         if not escuela_id:
             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        promedio_general = PromedioCalificaciones.objects.aggregate(promedio=Avg('promedio'))['promedio']
+        # Calcular promedios generales de la facultad
+        promedio_general = PromedioCalificaciones.objects.aggregate(
+            promedio=Avg('promedio'),
+            promedio_cuant=Avg('promedio_cuant'),
+            promedio_cual=Avg('promedio_cual')
+        )
         
-        promedio_escuela = PromedioCalificaciones.objects.filter(docente__escuela_id=escuela_id).aggregate(promedio=Avg('promedio'))['promedio']
+        # Calcular promedios específicos de la escuela
+        promedio_escuela = PromedioCalificaciones.objects.filter(docente__escuela_id=escuela_id).aggregate(
+            promedio=Avg('promedio'),
+            promedio_cuant=Avg('promedio_cuant'),
+            promedio_cual=Avg('promedio_cual')
+        )
 
-        if promedio_escuela is None:
-            promedio_escuela = 'No se encontraron calificaciones para la escuela proporcionada.'
+        # Manejo de caso donde no se encuentran registros para la escuela
+        if not promedio_escuela['promedio']:
+            return Response({'message': 'No se encontraron calificaciones para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
         
         return Response({
-            'promedio_facultad': promedio_general,
-            'promedio_escuela': promedio_escuela
-        }, status=status.HTTP_200_OK)
+                'promedio_facultad': promedio_general['promedio'],
+                'promedio_facultad_cuantitativo': promedio_general['promedio_cuant'],
+                'promedio_facultad_cualitativo': promedio_general['promedio_cual'],
+                'promedio_escuela': promedio_escuela['promedio'],
+                'promedio_escuela_cuantitativo': promedio_escuela['promedio_cuant'],
+                'promedio_escuela_cualitativo': promedio_escuela['promedio_cual'],
+            }, status=status.HTTP_200_OK)
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 # Metodo para obtener la información sobre promedios cualitativos de facultad, docente y escuela
 @api_view(['GET'])
@@ -494,3 +530,32 @@ def get_cual_fort_deb(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+    # Metodo que retorna el top 10 mejores docentes por escuela
+
+@api_view(['GET'])
+def get_top_10_docentes_by_school(request):
+    try:
+        escuela_id = request.query_params.get('escuela_id')
+        if not escuela_id:
+            return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Filtrar docentes por escuela y asegurar que son profesores
+        docentes = Usuario.objects.filter(escuela_id=escuela_id, is_profesor=True)
+        
+        # Obtener el promedio de la columna 'promedio' para cada docente
+        top_docentes = (
+            PromedioCalificaciones.objects.filter(docente__in=docentes)
+            .values('docente__id', 'docente__nombre')  # Group by docente
+            .annotate(promedio_total=Avg('promedio'))  # Promediar la columna 'promedio' para cada docente
+            .order_by('-promedio_total')[:10]  # Ordenar de mayor a menor y obtener los primeros 10
+        )
+
+        if not top_docentes:
+            return Response({'error': 'No se encontraron docentes para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(list(top_docentes), status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
