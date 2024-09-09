@@ -559,3 +559,36 @@ def get_top_10_docentes_by_school(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+# Metodo que retorna los promedios cualitativos y cuentitativos de todos los docentes de una escuela.
+
+@api_view(['GET'])
+def get_teacher_average_grades_by_school(request):
+    try:
+        escuela_id = request.query_params.get('escuela_id')
+        if not escuela_id:
+            return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Filtrar los docentes que pertenecen a la escuela especificada
+        docentes_escuela = Usuario.objects.filter(escuela_id=escuela_id, is_profesor=True)
+        
+        if not docentes_escuela.exists():
+            return Response({'error': 'No se encontraron docentes para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Obtener promedios individuales para cada docente
+        promedios_docentes = []
+        for docente in docentes_escuela:
+            promedio_docente = PromedioCalificaciones.objects.filter(docente=docente).aggregate(
+                promedio_cuant=Avg('promedio_cuant'),
+                promedio_cual=Avg('promedio_cual')
+            )
+            promedios_docentes.append({
+                'docente': docente.nombre,
+                'promedio_cuantitativo': promedio_docente['promedio_cuant'],
+                'promedio_cualitativo': promedio_docente['promedio_cual']
+            })
+
+        return Response(promedios_docentes, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

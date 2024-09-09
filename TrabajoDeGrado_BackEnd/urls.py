@@ -54,5 +54,7 @@ urlpatterns = [
 
     path('core/analizar_comentarios', views.get_wordcloud_and_frequent_words),
 
-    path('core/techer_ranking', views.get_top_10_docentes_by_school)
+    path('core/techer_ranking', views.get_top_10_docentes_by_school),
+
+    path('core/average_grades_school', views.get_teacher_average_grades_by_school),
 ]
