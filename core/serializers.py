@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FortalezasDebilidadesCualitativas, Usuario, PromedioCalificaciones,Escuela,FortalezasDebilidadesCuantitativas, Materia, CalificacionesCualitativas
+from .models import FortalezasDebilidadesCualitativas, FortalezasDebilidadesEscula, Usuario, PromedioCalificaciones,Escuela,FortalezasDebilidadesCuantitativas, Materia, CalificacionesCualitativas
 
 class AuthTokenSerializer(serializers.Serializer):
     """serializer for the user authentication objectt"""
@@ -76,3 +76,8 @@ class Top10Serializer(serializers.ModelSerializer):
     class Meta:
         model = PromedioCalificaciones
         fields = ['docente_nombre', 'promedio']
+
+class SchoolFortDebSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FortalezasDebilidadesEscula
+        fields = ['id', 'escuela_id', 'valoraciones']

@@ -57,4 +57,8 @@ urlpatterns = [
     path('core/techer_ranking', views.get_top_10_docentes_by_school),
 
     path('core/average_grades_school', views.get_teacher_average_grades_by_school),
+
+    path('core/cual_analysis_school', views.find_strengths_weaknesses_school),
+
+    path('core/school_fort_deb', views.get_school_fort_deb)
 ]

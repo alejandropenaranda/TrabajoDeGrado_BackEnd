@@ -123,4 +123,9 @@ class FortalezasDebilidadesCualitativas(models.Model):
     docente = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='fortalezas_debilidades_cualitativas')
     prompt = models.TextField()
     valoraciones = models.TextField()
+
+class FortalezasDebilidadesEscula(models.Model):
+    escuela = models.ForeignKey(Escuela, on_delete=models.CASCADE, related_name='fortalezas_debilidades_escuela')
+    prompt = models.TextField()
+    valoraciones = models.TextField()
     

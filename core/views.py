@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import AuthTokenSerializer, CualFortDebSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer, CalificacionesCualitativasSerializer
+from .serializers import AuthTokenSerializer, CualFortDebSerializer, SchoolFortDebSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer, CalificacionesCualitativasSerializer
 
 from rest_framework.authtoken.models import Token
 from rest_framework import status
@@ -10,7 +10,7 @@ from rest_framework. authentication import TokenAuthentication
 
 from django.contrib.auth.models import User
 from django.db.models import Avg, Q
-from .models import Usuario, PromedioCalificaciones,FortalezasDebilidadesCuantitativas, CalificacionesCualitativas, FortalezasDebilidadesCualitativas
+from .models import Escuela, FortalezasDebilidadesEscula, Usuario, PromedioCalificaciones,FortalezasDebilidadesCuantitativas, CalificacionesCualitativas, FortalezasDebilidadesCualitativas
 from django.shortcuts import get_object_or_404
 
 import base64
@@ -413,8 +413,6 @@ def analizar_comentarios(comentarios):
     response = extraer_json(laguageModel(prompt))
     return prompt, response
 
-
-
     # response = openai.Completion.create(
     #     engine="gpt-4",
     #     prompt=prompt,
@@ -424,8 +422,6 @@ def analizar_comentarios(comentarios):
     #     temperature=0.7,
     # )
     # return response.choices[0].text.strip()
-
-    
 
 #Metodo que analiza los 10 comentario mas relevantes de cada docente y determina sus fortalezas y debilidades
 @api_view(['POST'])
@@ -592,3 +588,88 @@ def get_teacher_average_grades_by_school(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+# Metodo que analiza todos los comentarios de una escuela con un modelo de lenguaje con el objetivo de identificar fortalezas y debilidades generales de los docentes
+
+
+def analizar_comentarios_escuela(comentarios):
+    # Prompt original
+    # "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
+    # "\nEstructura de datos esperada:\n{\n {fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5]}"
+
+    # "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela y genera una estructura de datos que contega una lista con las caracteristicas que logres identificar de la misma siguiendo. La lista puede tener como maximo 10 items\n\n"
+    # "\nEstructura de datos esperada:\n{\n {caracteristicas: [caracteristicas 1, caracteristicas 2, caracteristicas 3, caracteristicas 4, caracteristicas 5 caracteristicas 6, caracteristicas 7, caracteristicas 8, caracteristicas 9, caracteristicas 10]}"
+    prompt_base = (
+        "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
+        "Comentarios:\n"
+    )
+    prompt_ejemplo = "\nEstructura de datos esperada:\n{\n {fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5]}"
+
+    comentarios_incluidos = []
+    prompt = prompt_base
+    for comentario in comentarios:
+        prompt += f" {comentario}\n"
+    prompt += prompt_ejemplo
+
+    response = extraer_json(laguageModel(prompt))
+    return prompt, response
+
+
+@api_view(['POST'])
+def find_strengths_weaknesses_school(request):
+    try:
+        escuela_id = request.data.get('escuela_id')
+        if not escuela_id:
+            return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        escuela = get_object_or_404(Escuela, pk=escuela_id)
+        comentarios = CalificacionesCualitativas.objects.filter(docente__escuela_id=escuela_id).order_by('promedio')
+        
+        if not comentarios:
+            return Response({'error': 'No se encontraron comentarios para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        prompt, resultado = analizar_comentarios_escuela(comentarios)
+
+        registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+            escuela=escuela,
+            defaults={'prompt': prompt, 'valoraciones': resultado}
+        )
+
+        if not creado:
+            registro.prompt = prompt
+            registro.valoraciones = resultado
+            registro.save()
+        
+        return Response({
+            'resultado': resultado
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+@api_view(['GET'])
+def get_school_fort_deb(request):
+    try:
+        escuela_id = request.query_params.get('escuela_id')
+        fortdeb = FortalezasDebilidadesEscula.objects.filter(escuela_id=escuela_id).first()
+
+        if not fortdeb:
+            return Response({'error': 'No se encontraron registros para la escuela con el ID proporcionado'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serializar el objeto
+        serializer = SchoolFortDebSerializer(fortdeb)
+
+        # Convertir valoraciones a JSON válido
+        data = serializer.data
+        if isinstance(data.get('valoraciones'), str):
+            try:
+                # Reemplazar comillas simples por comillas dobles en el string JSON
+                data['valoraciones'] = json.loads(data['valoraciones'].replace("'", '"'))
+            except json.JSONDecodeError:
+                return Response({'error': 'El formato de valoraciones es inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
