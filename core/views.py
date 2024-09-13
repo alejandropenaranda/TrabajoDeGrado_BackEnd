@@ -57,6 +57,65 @@ def user_register(request):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# Este metodo permite modificar los datos del usuario con el id ingresado - requiere ser admin
+@api_view(['PUT'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  # Verifica que haya un token y que el usuario esté autenticado
+def update_user_by_admin(request, user_id):
+    # Obtenemos el token de la cabecera de autorización
+    token_key = request.auth
+    token = get_object_or_404(Token, key=token_key)
+
+    # Obtenemos el usuario que está asociado con el token
+    admin_user = token.user
+
+    # Verificamos si el usuario autenticado es administrador
+    if not admin_user.is_admin:
+        return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Buscamos el usuario que queremos modificar por su ID usando el modelo personalizado Usuario
+    user = get_object_or_404(Usuario, id=user_id)
+    serializer = UsuarioSerializer(user, data=request.data, partial=True)  # partial=True permite actualizaciones parciales
+
+    if serializer.is_valid():
+        # Si se proporciona una nueva contraseña
+        if 'password' in request.data:
+            # Encriptar la nueva contraseña
+            user.set_password(request.data['password'])
+            user.save()  # Guardamos solo el usuario con la nueva contraseña encriptada
+
+        # Guardamos los demás campos del usuario sin incluir la contraseña
+        serializer.save(password=user.password)  # Guardamos el serializer sin sobrescribir la contraseña
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Este metodo permite listar a todos los usuarios del sistema - requiere ser admin
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def list_users_except_self(request):
+    # Obtenemos el token de la cabecera de autorización
+    token_key = request.auth
+    token = get_object_or_404(Token, key=token_key)
+
+    # Obtenemos el usuario que está asociado con el token
+    current_user = token.user
+
+    # Verificamos si el usuario autenticado es administrador
+    if not current_user.is_admin:
+        return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Filtrar todos los usuarios excepto el usuario que está haciendo la petición
+    users = Usuario.objects.exclude(id=current_user.id)
+
+    # Serializar los usuarios
+    serializer = UsuarioSerializer(users, many=True)
+
+    # Retornar la lista de usuarios
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
 # Este metodo retorna la información de ususario, requiere autenticación
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])

@@ -60,5 +60,9 @@ urlpatterns = [
 
     path('core/cual_analysis_school', views.find_strengths_weaknesses_school),
 
-    path('core/school_fort_deb', views.get_school_fort_deb)
+    path('core/school_fort_deb', views.get_school_fort_deb),
+
+    path('core/update-user/<int:user_id>/', views.update_user_by_admin),
+    
+    path('core/list-users', views.list_users_except_self)
 ]
