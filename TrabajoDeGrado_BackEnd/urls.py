@@ -64,5 +64,9 @@ urlpatterns = [
 
     path('core/update-user/<int:user_id>/', views.update_user_by_admin),
     
-    path('core/list-users', views.list_users_except_self)
+    path('core/list-users', views.list_users_except_self),
+
+    path('core/upload-qualitative-evaluations', views.upload_qualitative_evaluations),
+
+    path('core/upload-quantitative-evaluations', views.upload_quantitative_evaluations)
 ]

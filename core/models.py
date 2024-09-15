@@ -60,7 +60,7 @@ class CalificacionesCualitativas(models.Model):
     periodo = models.CharField(max_length=20)
     comentario = models.TextField()
     comentario_limpio = models.TextField(blank=True, null=True)
-    promedio = models.FloatField()
+    promedio = models.FloatField(null=True)
 
     def __str__(self):
         return self.comentario

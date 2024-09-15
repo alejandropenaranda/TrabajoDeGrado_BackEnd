@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.decorators import authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework. authentication import TokenAuthentication
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth.models import User
 from django.db.models import Avg, Q
@@ -17,8 +18,11 @@ import base64
 from io import BytesIO
 from collections import Counter
 from wordcloud import WordCloud
+import pandas as pd
 
 from .utils.fortalezas_debilidades.cual_fort_deb import laguageModel
+from .utils.procesar_evaluaciones.cualitativas import procesar_evaluaciones_cualitativas
+from .utils.procesar_evaluaciones.cuantitativas import procesar_evaluaciones_cuantitativas
 
 # import openai
 import tiktoken
@@ -732,3 +736,69 @@ def get_school_fort_deb(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Metodo que recibe los archivos de las valoraciones cualitativas
+
+@api_view(['POST'])
+def upload_qualitative_evaluations(request):
+    parser_classes = (MultiPartParser, FormParser)
+    
+    file = request.FILES.get('file')
+
+    if not file:
+        return Response({"error": "No se ha proporcionado un archivo"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Verificar si el archivo es un archivo Excel
+    if not file.name.endswith('.xlsx'):
+        return Response({"error": "El archivo debe tener formato .xlsx"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        df = pd.read_excel(file)
+
+        # Validar estructura del archivo
+        required_columns = ['SEMESTRE', 'DOCENTE', 'CEDULA', 'ESCUELA', 'COMENTARIO', 'MATERIA', 'CODIGO_MATERIA']
+        if not all(column in df.columns for column in required_columns):
+            return Response({"error": "El archivo no contiene la estructura esperada"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Proceso de análisis de datos
+        procesar_evaluaciones_cualitativas(df)
+
+        return Response({"message": "Archivo procesado correctamente"}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+@api_view(['POST'])
+def upload_quantitative_evaluations(request):
+    parser_classes = (MultiPartParser, FormParser)
+    
+    file = request.FILES.get('file')
+
+    if not file:
+        return Response({"error": "No se ha proporcionado un archivo"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Verificar si el archivo es un archivo Excel
+    if not file.name.endswith('.xlsx'):
+        return Response({"error": "El archivo debe tener formato .xlsx"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        df = pd.read_excel(file)
+
+        # Validar estructura del archivo
+        required_columns = ['SEMESTRE', 'DOCENTE', 'CEDULA', 'ESCUELA', 'PROM_PREGUNTA9', 'PROM_PREGUNTA10',
+                            'PROM_PREGUNTA11', 'PROM_PREGUNTA12', 'PROM_PREGUNTA13', 'PROM_PREGUNTA14', 
+                            'PROM_PREGUNTA15', 'PROM_PREGUNTA16', 'PROM_PREGUNTA17', 'PROM_PREGUNTA18',	
+                            'PROM_PREGUNTA19', 'PROM_PREGUNTA20', 'PROM_DOCENTE', 'MATERIA', 'CODIGO_MATERIA']
+        if not all(column in df.columns for column in required_columns):
+            return Response({"error": "El archivo no contiene la estructura esperada"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Proceso de análisis de datos
+        # Aquí puedes recorrer las filas y realizar las operaciones necesarias
+        procesar_evaluaciones_cuantitativas()
+
+        return Response({"message": "Archivo procesado correctamente"}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

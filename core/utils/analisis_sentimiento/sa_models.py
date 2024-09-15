@@ -2,7 +2,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 from pysentimiento import create_analyzer
 
-from conversor import conversor_calificacion_citizenlab,conversor_calificacion_lxyuan,convertir_a_calificacion_5_estrellas,formatear
+from core.utils.analisis_sentimiento.conversor import conversor_calificacion_citizenlab,conversor_calificacion_lxyuan,convertir_a_calificacion_5_estrellas,formatear
 
 #Funcion que se encarga de aplicar el analisis de sentimientos del modelo "marianna13/bert-multilingual-sentiment" a un comentario
 
