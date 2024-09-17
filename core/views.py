@@ -737,7 +737,7 @@ def get_school_fort_deb(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# Metodo que recibe los archivos de las valoraciones cualitativas
+# Metodo que recibe, almacena y procesa los archivos de las valoraciones cualitativas
 
 @api_view(['POST'])
 def upload_qualitative_evaluations(request):
@@ -768,7 +768,7 @@ def upload_qualitative_evaluations(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+# Metodo que recibe, almacena y procesa los archivos de las valoraciones cuantitativas
 
 @api_view(['POST'])
 def upload_quantitative_evaluations(request):
@@ -796,7 +796,7 @@ def upload_quantitative_evaluations(request):
 
         # Proceso de análisis de datos
         # Aquí puedes recorrer las filas y realizar las operaciones necesarias
-        procesar_evaluaciones_cuantitativas()
+        procesar_evaluaciones_cuantitativas(df)
 
         return Response({"message": "Archivo procesado correctamente"}, status=status.HTTP_200_OK)
 

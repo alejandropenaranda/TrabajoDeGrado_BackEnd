@@ -1,9 +1,3 @@
-import os
-import django
-
-# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TrabajoDeGrado_BackEnd.settings')
-# django.setup()
-
 from django.db.models import Avg
 from core.models import Usuario, CalificacionesCualitativas, CalificacionesCuantitativas, PromedioCalificaciones, Materia
 

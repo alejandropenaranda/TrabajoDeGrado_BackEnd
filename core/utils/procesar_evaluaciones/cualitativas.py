@@ -120,3 +120,4 @@ def procesar_evaluaciones_cualitativas(df):
     filtrar_y_almacenar_datos(df)
     aplicar_analisis_de_sentimientos()
     limpiar_comentarios()
+    # calcular_promedios()
