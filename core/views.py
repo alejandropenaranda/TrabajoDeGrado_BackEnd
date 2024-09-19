@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import AuthTokenSerializer, CualFortDebSerializer, SchoolFortDebSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer, CalificacionesCualitativasSerializer
+from .serializers import AuthTokenSerializer, CualFortDebSerializer, SchoolFortDebSerializer, SchoolSerializer, UsuarioSerializer,AverageGradesSerizalizer, CuantFortDebSerializer, CalificacionesCualitativasSerializer
 
 from rest_framework.authtoken.models import Token
 from rest_framework import status
@@ -95,29 +95,67 @@ def update_user_by_admin(request, user_id):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Este metodo permite listar a todos los usuarios del sistema - requiere ser admin
-@api_view(['GET'])
+@api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def list_users_except_self(request):
-    # Obtenemos el token de la cabecera de autorización
+def user_self_change_password(request):
     token_key = request.auth
     token = get_object_or_404(Token, key=token_key)
+    user = token.user
 
-    # Obtenemos el usuario que está asociado con el token
-    current_user = token.user
+    if user.codigo != request.data.get('cedula'):
+        return Response({'error': 'No puede modificar la contraseña de otro usuario'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Verificamos si el usuario autenticado es administrador
+    # Validar y actualizar la contraseña
+    new_password = request.data.get('password')
+    if new_password:
+        user.set_password(new_password)
+        user.save()  # Guardamos solo el usuario con la nueva contraseña encriptada
+
+    return Response({'message': 'Contraseña actualizada exitosamente'}, status=status.HTTP_200_OK)
+
+# Este metodo permite listar a todos los usuarios del sistema - requiere ser admin
+
+# @authentication_classes([TokenAuthentication])
+# @permission_classes([IsAuthenticated])
+# @api_view(['GET'])
+# def list_users_except_self(request):
+
+#     print("entre a la vista")
+#     # Obtenemos el token de la cabecera de autorización
+#     token_key = request.auth
+
+#     print(token_key)
+#     token = get_object_or_404(Token, key=token_key)
+
+#     current_user = token.user
+
+#     if not current_user.is_admin:
+#         return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+#     users = Usuario.objects.exclude(id=current_user.id)
+
+#     serializer = UsuarioSerializer(users, many=True)
+
+#     # Retornar la lista de usuarios
+#     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated]) 
+def list_users_except_self(request):
+    print("entre a la vista")
+
+    current_user = request.user
+
+    # Verificar si el usuario no es administrador
     if not current_user.is_admin:
         return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    # Filtrar todos los usuarios excepto el usuario que está haciendo la petición
     users = Usuario.objects.exclude(id=current_user.id)
 
-    # Serializar los usuarios
     serializer = UsuarioSerializer(users, many=True)
 
-    # Retornar la lista de usuarios
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 # Este metodo retorna la información de ususario, requiere autenticación
@@ -652,6 +690,47 @@ def get_teacher_average_grades_by_school(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
+
+# Metodo que retorna los promedios cualitativos y cuantitativos de todos las escuelas de la facultad
+
+@api_view(['GET'])
+def get_school_average_grades(request):
+    try:
+        # Obtener todas las escuelas registradas
+        escuelas = Escuela.objects.all()
+
+        if not escuelas.exists():
+            return Response({'error': 'No se encontraron escuelas registradas.'}, status=status.HTTP_404_NOT_FOUND)
+
+        resultados_escuelas = []
+
+        # Iterar sobre cada escuela
+        for escuela in escuelas:
+            # Filtrar los docentes de la escuela
+            docentes_escuela = Usuario.objects.filter(escuela=escuela, is_profesor=True)
+
+            if docentes_escuela.exists():
+                # Calcular el promedio cuantitativo y cualitativo de todos los docentes de la escuela
+                promedio_escuela = PromedioCalificaciones.objects.filter(docente__in=docentes_escuela).aggregate(
+                    promedio_cuant=Avg('promedio_cuant'),
+                    promedio_cual=Avg('promedio_cual')
+                )
+
+                resultados_escuelas.append({
+                    'escuela': escuela.nombre,
+                    'promedio_cuantitativo': promedio_escuela['promedio_cuant'],
+                    'promedio_cualitativo': promedio_escuela['promedio_cual']
+                })
+
+        if not resultados_escuelas:
+            return Response({'error': 'No se encontraron promedios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(resultados_escuelas, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    
 # Metodo que analiza todos los comentarios de una escuela con un modelo de lenguaje con el objetivo de identificar fortalezas y debilidades generales de los docentes
 
 
@@ -660,13 +739,11 @@ def analizar_comentarios_escuela(comentarios):
     # "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
     # "\nEstructura de datos esperada:\n{\n {fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5]}"
 
-    # "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela y genera una estructura de datos que contega una lista con las caracteristicas que logres identificar de la misma siguiendo. La lista puede tener como maximo 10 items\n\n"
-    # "\nEstructura de datos esperada:\n{\n {caracteristicas: [caracteristicas 1, caracteristicas 2, caracteristicas 3, caracteristicas 4, caracteristicas 5 caracteristicas 6, caracteristicas 7, caracteristicas 8, caracteristicas 9, caracteristicas 10]}"
     prompt_base = (
         "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
-        "Comentarios:\n"
+        "Comentarios de los docentes:\n"
     )
-    prompt_ejemplo = "\nEstructura de datos esperada:\n{\n {fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5]}"
+    prompt_ejemplo = "\nEstructura de datos esperada: { fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5] }"
 
     comentarios_incluidos = []
     prompt = prompt_base
@@ -678,6 +755,38 @@ def analizar_comentarios_escuela(comentarios):
     return prompt, response
 
 
+# @api_view(['POST'])
+# def find_strengths_weaknesses_school(request):
+#     try:
+#         escuela_id = request.data.get('escuela_id')
+#         if not escuela_id:
+#             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+#         escuela = get_object_or_404(Escuela, pk=escuela_id)
+#         comentarios = CalificacionesCualitativas.objects.filter(docente__escuela_id=escuela_id).order_by('promedio')
+        
+#         if not comentarios:
+#             return Response({'error': 'No se encontraron comentarios para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
+        
+#         prompt, resultado = analizar_comentarios_escuela(comentarios)
+
+#         registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+#             escuela=escuela,
+#             defaults={'prompt': prompt, 'valoraciones': resultado}
+#         )
+
+#         if not creado:
+#             registro.prompt = prompt
+#             registro.valoraciones = resultado
+#             registro.save()
+        
+#         return Response({
+#             'resultado': resultado
+#         }, status=status.HTTP_200_OK)
+    
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['POST'])
 def find_strengths_weaknesses_school(request):
     try:
@@ -686,11 +795,24 @@ def find_strengths_weaknesses_school(request):
             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
         
         escuela = get_object_or_404(Escuela, pk=escuela_id)
-        comentarios = CalificacionesCualitativas.objects.filter(docente__escuela_id=escuela_id).order_by('promedio')
+        
+        # Obtener los 20 comentarios con peor promedio (orden ascendente)
+        peores_comentarios = CalificacionesCualitativas.objects.filter(
+            docente__escuela_id=escuela_id
+        ).order_by('promedio')[:20]
+        
+        # Obtener los 20 comentarios con mejor promedio (orden descendente)
+        mejores_comentarios = CalificacionesCualitativas.objects.filter(
+            docente__escuela_id=escuela_id
+        ).order_by('-promedio')[:20]
+        
+        # Combinar ambos conjuntos de comentarios
+        comentarios = list(peores_comentarios) + list(mejores_comentarios)
         
         if not comentarios:
             return Response({'error': 'No se encontraron comentarios para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
         
+        # Pasar los comentarios combinados al método de análisis
         prompt, resultado = analizar_comentarios_escuela(comentarios)
 
         registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
@@ -709,7 +831,105 @@ def find_strengths_weaknesses_school(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
+# @api_view(['POST'])
+# def find_strengths_weaknesses_all_schools(request):
+#     try:
+#         escuelas = Escuela.objects.all()
+
+#         if not escuelas:
+#             return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
+        
+#         resultado_general = []
+
+#         for escuela in escuelas:
+#             comentarios = CalificacionesCualitativas.objects.filter(docente__escuela=escuela).order_by('promedio')
+
+#             if comentarios:
+#                 prompt, resultado = analizar_comentarios_escuela(comentarios)
+
+#                 registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+#                     escuela=escuela,
+#                     defaults={'prompt': prompt, 'valoraciones': resultado}
+#                 )
+
+#                 if not creado:
+#                     registro.prompt = prompt
+#                     registro.valoraciones = resultado
+#                     registro.save()
+
+#                 resultado_general.append({
+#                     'escuela': escuela.nombre,
+#                     'resultado': resultado
+#                 })
+
+#         if not resultado_general:
+#             return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+#         return Response({
+#             'resultados': resultado_general
+#         }, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def find_strengths_weaknesses_all_schools(request):
+    try:
+        escuelas = Escuela.objects.all()
+
+        if not escuelas:
+            return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        resultado_general = []
+
+        for escuela in escuelas:
+            # Obtener los 20 comentarios con peor promedio (orden ascendente)
+            peores_comentarios = CalificacionesCualitativas.objects.filter(
+                docente__escuela=escuela
+            ).order_by('promedio')[:15]
+
+            # Obtener los 20 comentarios con mejor promedio (orden descendente)
+            mejores_comentarios = CalificacionesCualitativas.objects.filter(
+                docente__escuela=escuela
+            ).order_by('-promedio')[:15]
+
+            # Combinar ambos conjuntos de comentarios
+            comentarios = list(peores_comentarios) + list(mejores_comentarios)
+
+            if comentarios:
+                # Pasar los comentarios combinados al método de análisis
+                prompt, resultado = analizar_comentarios_escuela(comentarios)
+
+                # Crear o actualizar el registro de fortalezas y debilidades
+                registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+                    escuela=escuela,
+                    defaults={'prompt': prompt, 'valoraciones': resultado}
+                )
+
+                if not creado:
+                    registro.prompt = prompt
+                    registro.valoraciones = resultado
+                    registro.save()
+
+                # Añadir el resultado para esta escuela a la lista general
+                resultado_general.append({
+                    'escuela': escuela.nombre,
+                    'resultado': resultado
+                })
+
+        if not resultado_general:
+            return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            'resultados': resultado_general
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 def get_school_fort_deb(request):
@@ -759,6 +979,14 @@ def upload_qualitative_evaluations(request):
         required_columns = ['SEMESTRE', 'DOCENTE', 'CEDULA', 'ESCUELA', 'COMENTARIO', 'MATERIA', 'CODIGO_MATERIA']
         if not all(column in df.columns for column in required_columns):
             return Response({"error": "El archivo no contiene la estructura esperada"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verificar si el archivo tiene registros
+        if df.empty:
+            return Response({"error": "El archivo no contiene ningún registro"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar si alguna columna tiene valores faltantes en los registros
+        if df[required_columns].isnull().any().any():
+            return Response({"error": "Algunas columnas tienen valores faltantes"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Proceso de análisis de datos
         procesar_evaluaciones_cualitativas(df)
@@ -789,16 +1017,41 @@ def upload_quantitative_evaluations(request):
         # Validar estructura del archivo
         required_columns = ['SEMESTRE', 'DOCENTE', 'CEDULA', 'ESCUELA', 'PROM_PREGUNTA9', 'PROM_PREGUNTA10',
                             'PROM_PREGUNTA11', 'PROM_PREGUNTA12', 'PROM_PREGUNTA13', 'PROM_PREGUNTA14', 
-                            'PROM_PREGUNTA15', 'PROM_PREGUNTA16', 'PROM_PREGUNTA17', 'PROM_PREGUNTA18',	
+                            'PROM_PREGUNTA15', 'PROM_PREGUNTA16', 'PROM_PREGUNTA17', 'PROM_PREGUNTA18',    
                             'PROM_PREGUNTA19', 'PROM_PREGUNTA20', 'PROM_DOCENTE', 'MATERIA', 'CODIGO_MATERIA']
         if not all(column in df.columns for column in required_columns):
             return Response({"error": "El archivo no contiene la estructura esperada"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Verificar si el archivo tiene registros
+        if df.empty:
+            return Response({"error": "El archivo no contiene ningún registro"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar si alguna columna tiene valores faltantes en los registros
+        if df[required_columns].isnull().any().any():
+            return Response({"error": "Algunas columnas tienen valores faltantes"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Proceso de análisis de datos
-        # Aquí puedes recorrer las filas y realizar las operaciones necesarias
         procesar_evaluaciones_cuantitativas(df)
 
         return Response({"message": "Archivo procesado correctamente"}, status=status.HTTP_200_OK)
 
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def get_Schools(request):
+    try:
+        # Obtener todas las escuelas
+        escuelas = Escuela.objects.all()
+
+        if not escuelas:
+            return Response({'error': 'No se encontraron registros de escuelas'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serializar los objetos de escuelas
+        serializer = SchoolSerializer(escuelas, many=True)
+
+        # Retornar los datos serializados
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

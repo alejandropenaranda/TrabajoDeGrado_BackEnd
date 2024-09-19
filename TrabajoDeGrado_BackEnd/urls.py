@@ -60,6 +60,8 @@ urlpatterns = [
 
     path('core/cual_analysis_school', views.find_strengths_weaknesses_school),
 
+    path('core/cual_analysis_all_school', views.find_strengths_weaknesses_all_schools),
+
     path('core/school_fort_deb', views.get_school_fort_deb),
 
     path('core/update-user/<int:user_id>/', views.update_user_by_admin),
@@ -68,5 +70,12 @@ urlpatterns = [
 
     path('core/upload-qualitative-evaluations', views.upload_qualitative_evaluations),
 
-    path('core/upload-quantitative-evaluations', views.upload_quantitative_evaluations)
+    path('core/upload-quantitative-evaluations', views.upload_quantitative_evaluations),
+
+    path('core/self-change-password', views.user_self_change_password),
+
+    path('core/average_grades_faculty', views.get_school_average_grades),
+
+    path('core/schools', views.get_Schools),
+
 ]
