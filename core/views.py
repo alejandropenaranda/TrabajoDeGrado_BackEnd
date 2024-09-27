@@ -57,9 +57,9 @@ def user_register(request):
         user.save()
 
         token = Token.objects.create(user=user)
-        return Response({'token': token.key, 'user': serializer.data}, status=status.HTTP_201_CREATED)
+        return Response({'user': serializer.data}, status=status.HTTP_201_CREATED)
     
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 # Este metodo permite modificar los datos del usuario con el id ingresado - requiere ser admin
 @api_view(['PUT'])
@@ -465,18 +465,36 @@ def get_wordcloud_and_frequent_words(request):
 import re
 import json
 
+# def extraer_json(respuesta):
+#     json_match = re.search(r'\{.*\}', respuesta, re.DOTALL)
+#     print(json_match)
+#     if json_match:
+#         json_str = json_match.group()
+#         try:
+#             datos = json.loads(json_str)
+#             return datos
+#         except json.JSONDecodeError:
+#             return respuesta
+#     else:
+#         return respuesta 
+
 def extraer_json(respuesta):
+    # Intentar buscar el bloque JSON dentro de la respuesta
     json_match = re.search(r'\{.*\}', respuesta, re.DOTALL)
-    print(json_match)
+    
     if json_match:
-        json_str = json_match.group()
+        json_str = json_match.group()  # Obtener el string que coincide con la expresión regular
         try:
+            # Intentar decodificar el string como JSON
             datos = json.loads(json_str)
             return datos
-        except json.JSONDecodeError:
-            return respuesta
+        except json.JSONDecodeError as e:
+            # Si falla la decodificación, devolver el error y la respuesta original para mayor claridad
+            print(f"Error al decodificar el JSON: {e}")
+            return {"error": "Error al decodificar el JSON", "respuesta_original": respuesta}
     else:
-        return respuesta 
+        # Si no encuentra JSON en la respuesta, retornar la respuesta original como error
+        return {"error": "No se encontró un bloque JSON en la respuesta", "respuesta_original": respuesta}
 
 # openai.api_key = 'tu_api_key'
 enc = tiktoken.encoding_for_model("gpt-4")
@@ -734,58 +752,142 @@ def get_school_average_grades(request):
 # Metodo que analiza todos los comentarios de una escuela con un modelo de lenguaje con el objetivo de identificar fortalezas y debilidades generales de los docentes
 
 
-def analizar_comentarios_escuela(comentarios):
-    # Prompt original
-    # "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
-    # "\nEstructura de datos esperada:\n{\n {fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5]}"
+# def analizar_comentarios_escuela(comentarios):
+#     # Prompt original
+#     # "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
+#     # "\nEstructura de datos esperada:\n{\n {fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5]}"
 
-    prompt_base = (
-        "Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica cuáles son las fortalezas y oportunidades de mejora de los docentes de la escula en general y devuelve una estructura de datos que contenga las fortalezas y oportunidades de mejora, como maximo genera 5 fortalezas y 5 oporunidades de mejora.\n\n"
-        "Comentarios de los docentes:\n"
-    )
-    prompt_ejemplo = "\nEstructura de datos esperada: { fortalezas: [fortaleza 1, fortaleza 2, fortaleza 3, fortaleza 4, fortaleza 5], oportunidades_mejora: [oportunidad 1, oportunidad 2, oportunidad 3, oportunidad 4, oportunidad 5] }"
+#     prompt_base = (
+#         """Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. Identifica las fortalezas y oportunidades de mejora generales que tienen estos docentes y genera una estructura de datos en formato JSON estrictamente como se indica a continuación. Asegúrate de que el JSON tenga exactamente 5 fortalezas y 5 oportunidades de mejora, o menos si no es posible identificar todas. No agregues explicaciones adicionales fuera del formato JSON.
 
-    comentarios_incluidos = []
-    prompt = prompt_base
-    for comentario in comentarios:
-        prompt += f" {comentario}\n"
-    prompt += prompt_ejemplo
-
-    response = extraer_json(laguageModel(prompt))
-    return prompt, response
-
-
-# @api_view(['POST'])
-# def find_strengths_weaknesses_school(request):
-#     try:
-#         escuela_id = request.data.get('escuela_id')
-#         if not escuela_id:
-#             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-#         escuela = get_object_or_404(Escuela, pk=escuela_id)
-#         comentarios = CalificacionesCualitativas.objects.filter(docente__escuela_id=escuela_id).order_by('promedio')
-        
-#         if not comentarios:
-#             return Response({'error': 'No se encontraron comentarios para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
-        
-#         prompt, resultado = analizar_comentarios_escuela(comentarios)
-
-#         registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
-#             escuela=escuela,
-#             defaults={'prompt': prompt, 'valoraciones': resultado}
-#         )
-
-#         if not creado:
-#             registro.prompt = prompt
-#             registro.valoraciones = resultado
-#             registro.save()
-        
-#         return Response({
-#             'resultado': resultado
-#         }, status=status.HTTP_200_OK)
+#         Comentarios de los docentes:"""
     
-#     except Exception as e:
-#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#     )
+#     prompt_ejemplo = """ Formato de la respuesta esperada (en JSON):
+#                     {
+#                     "fortalezas": ["fortaleza 1", "fortaleza 2", "fortaleza 3", "fortaleza 4", "fortaleza 5"],
+#                     "oportunidades_mejora": ["oportunidad 1", "oportunidad 2", "oportunidad 3", "oportunidad 4", "oportunidad 5"]
+#                     }"""
+
+#     comentarios_incluidos = []
+#     prompt = prompt_base
+#     for comentario in comentarios:
+#         prompt += f" {comentario}\n"
+#     prompt += prompt_ejemplo
+
+#     response = extraer_json(laguageModel(prompt))
+#     return prompt, response
+
+# def analizar_comentarios_escuela(comentarios):
+#     # Prompt base
+#     prompt_base = (
+#         """Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. 
+#         Identifica las fortalezas y oportunidades de mejora generales que tienen estos docentes y 
+#         genera una estructura de datos en formato JSON estrictamente como se indica a continuación. 
+#         Asegúrate de que el JSON tenga exactamente 5 fortalezas y 5 oportunidades de mejora, o menos si no es posible identificar todas. 
+#         No agregues explicaciones adicionales fuera del formato JSON.
+
+#         Comentarios de los docentes:
+#         """
+#     )
+    
+#     # Ejemplo de formato esperado
+#     prompt_ejemplo = """
+#         Formato de la respuesta esperada (en JSON):
+#         {
+#             "fortalezas": ["fortaleza 1", "fortaleza 2", "fortaleza 3", "fortaleza 4", "fortaleza 5"],
+#             "oportunidades_mejora": ["oportunidad 1", "oportunidad 2", "oportunidad 3", "oportunidad 4", "oportunidad 5"]
+#         }
+#     """
+    
+#     # Unimos todos los comentarios al prompt
+#     comentarios_incluidos = "\n".join([f"{comentario}" for comentario in comentarios])
+#     prompt = f"{prompt_base}\n{comentarios_incluidos}\n{prompt_ejemplo}"
+    
+#     try:
+#         # Llamada al modelo de lenguaje
+#         respuesta_modelo = laguageModel(prompt)
+        
+#         # Extraer solo el JSON de la respuesta del modelo
+#         respuesta_json = extraer_json(respuesta_modelo)
+        
+#         # Validar que la respuesta sea un JSON válido
+#         datos = json.loads(respuesta_json)
+        
+#         # Verificar que la estructura contenga las claves esperadas
+#         if "fortalezas" not in datos or "oportunidades_mejora" not in datos:
+#             raise ValueError("La estructura JSON no contiene las claves 'fortalezas' o 'oportunidades_mejora'.")
+        
+#         # Asegurarse de que la longitud de las listas no sea mayor a 5
+#         datos["fortalezas"] = datos["fortalezas"][:5]
+#         datos["oportunidades_mejora"] = datos["oportunidades_mejora"][:5]
+
+#         return prompt, datos
+    
+#     except (json.JSONDecodeError, ValueError) as e:
+#         # Si ocurre algún error, devolver una respuesta con un formato de error
+#         return prompt, {"error": f"Error al procesar los comentarios: {str(e)}"}
+
+
+import json
+import time
+
+def analizar_comentarios_escuela(comentarios, max_reintentos=3, delay_reintento=1):
+    prompt_base = (
+        """Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. 
+        Identifica las fortalezas y oportunidades de mejora generales que tienen estos docentes y 
+        genera una estructura de datos en formato JSON estrictamente como se indica a continuación. 
+        Asegúrate de que el JSON tenga exactamente 5 fortalezas y 5 oportunidades de mejora, o menos si no es posible identificar todas. 
+        No agregues explicaciones adicionales fuera del formato JSON.
+
+        Comentarios de los docentes:
+        """
+    )
+    
+    prompt_ejemplo = """
+        Formato de la respuesta esperada (en JSON):
+        {
+            "fortalezas": ["fortaleza 1", "fortaleza 2", "fortaleza 3", "fortaleza 4", "fortaleza 5"],
+            "oportunidades_mejora": ["oportunidad 1", "oportunidad 2", "oportunidad 3", "oportunidad 4", "oportunidad 5"]
+        }
+    """
+    
+    comentarios_incluidos = "\n".join([f"{comentario}" for comentario in comentarios])
+    prompt = f"{prompt_base}\n{comentarios_incluidos}\n{prompt_ejemplo}"
+    
+    reintento = 0
+    while reintento < max_reintentos:
+        try:
+            # Llamada al modelo de lenguaje
+            respuesta_modelo = laguageModel(prompt)
+            
+            # Extraer el JSON de la respuesta
+            respuesta_json = extraer_json(respuesta_modelo)
+            
+            # Verificar si extraer_json devolvió un error
+            if "error" in respuesta_json:
+                raise ValueError(f"Error en la extracción del JSON: {respuesta_json['error']}")
+
+            # Asegurarse de que la estructura JSON tenga las claves esperadas
+            if "fortalezas" not in respuesta_json or "oportunidades_mejora" not in respuesta_json:
+                raise ValueError("La estructura JSON no contiene las claves 'fortalezas' o 'oportunidades_mejora'.")
+            
+            # Limitar a 5 fortalezas y 5 oportunidades
+            respuesta_json["fortalezas"] = respuesta_json["fortalezas"][:5]
+            respuesta_json["oportunidades_mejora"] = respuesta_json["oportunidades_mejora"][:5]
+
+            return prompt, respuesta_json
+        
+        except (json.JSONDecodeError, ValueError) as e:
+            reintento += 1
+            if reintento >= max_reintentos:
+                return prompt, {"error": f"Error al procesar los comentarios después de {max_reintentos} intentos: {str(e)}"}
+            else:
+                time.sleep(delay_reintento)
+
+    return prompt, {"error": "No se pudo obtener una respuesta válida después de varios intentos."}
+
+
 
 @api_view(['POST'])
 def find_strengths_weaknesses_school(request):
@@ -831,48 +933,6 @@ def find_strengths_weaknesses_school(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-# @api_view(['POST'])
-# def find_strengths_weaknesses_all_schools(request):
-#     try:
-#         escuelas = Escuela.objects.all()
-
-#         if not escuelas:
-#             return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
-        
-#         resultado_general = []
-
-#         for escuela in escuelas:
-#             comentarios = CalificacionesCualitativas.objects.filter(docente__escuela=escuela).order_by('promedio')
-
-#             if comentarios:
-#                 prompt, resultado = analizar_comentarios_escuela(comentarios)
-
-#                 registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
-#                     escuela=escuela,
-#                     defaults={'prompt': prompt, 'valoraciones': resultado}
-#                 )
-
-#                 if not creado:
-#                     registro.prompt = prompt
-#                     registro.valoraciones = resultado
-#                     registro.save()
-
-#                 resultado_general.append({
-#                     'escuela': escuela.nombre,
-#                     'resultado': resultado
-#                 })
-
-#         if not resultado_general:
-#             return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
-
-#         return Response({
-#             'resultados': resultado_general
-#         }, status=status.HTTP_200_OK)
-
-#     except Exception as e:
-#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -929,6 +989,74 @@ def find_strengths_weaknesses_all_schools(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+# @api_view(['POST'])
+# def find_strengths_weaknesses_all_schools(request):
+#     try:
+#         escuelas = Escuela.objects.all()
+
+#         if not escuelas:
+#             return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
+        
+#         resultado_general = []
+
+#         for escuela in escuelas:
+#             docentes = Usuario.objects.filter(escuela=escuela, is_profesor=True)
+
+#             if not docentes:
+#                 continue  # Si no hay docentes en la escuela, pasar a la siguiente
+
+#             comentarios_por_escuela = []
+
+#             for docente in docentes:
+#                 # Obtener los 2 peores comentarios del docente (orden ascendente)
+#                 peores_comentarios = CalificacionesCualitativas.objects.filter(
+#                     docente=docente
+#                 ).order_by('promedio')[:1]
+
+#                 # Obtener los 2 mejores comentarios del docente (orden descendente)
+#                 mejores_comentarios = CalificacionesCualitativas.objects.filter(
+#                     docente=docente
+#                 ).order_by('-promedio')[:1]
+
+#                 # Combinar ambos conjuntos de comentarios
+#                 comentarios = list(peores_comentarios) + list(mejores_comentarios)
+
+#                 # Añadir los comentarios del docente a la lista de comentarios por escuela
+#                 comentarios_por_escuela.extend(comentarios)
+
+#             if comentarios_por_escuela:
+#                 # Pasar todos los comentarios de la escuela al método de análisis
+#                 prompt, resultado = analizar_comentarios_escuela(comentarios_por_escuela)
+
+#                 # Crear o actualizar el registro de fortalezas y debilidades
+#                 registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+#                     escuela=escuela,
+#                     defaults={'prompt': prompt, 'valoraciones': resultado}
+#                 )
+
+#                 if not creado:
+#                     registro.prompt = prompt
+#                     registro.valoraciones = resultado
+#                     registro.save()
+
+#                 # Añadir el resultado para esta escuela a la lista general
+#                 resultado_general.append({
+#                     'escuela': escuela.nombre,
+#                     'resultado': resultado
+#                 })
+
+#         if not resultado_general:
+#             return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+#         return Response({
+#             'resultados': resultado_general
+#         }, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 @api_view(['GET'])

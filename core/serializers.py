@@ -15,23 +15,29 @@ class SchoolSerializer(serializers.ModelSerializer):
         fields = ['id','nombre']
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    escuela = SchoolSerializer(many=False, read_only = True)
+    escuela_id = serializers.PrimaryKeyRelatedField(queryset=Escuela.objects.all(), write_only=True)
+    escuela = SchoolSerializer(read_only=True)
+
     class Meta:
         model = Usuario
-        fields = ['id', 'nombre', 'email', 'codigo', 'password', 'is_admin', 'is_director', 'is_profesor', 'escuela']
+        fields = ['id', 'nombre', 'email', 'codigo', 'password', 'is_admin', 'is_director', 'is_profesor', 'escuela_id', 'escuela']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
+        escuela_instance = validated_data.pop('escuela_id')
         user = Usuario.objects.create_user(
             email=validated_data['email'],
             password=validated_data['password'],
             nombre=validated_data['nombre'],
             codigo=validated_data['codigo'],
+            escuela=escuela_instance,
             is_admin=validated_data.get('is_admin', False),
             is_director=validated_data.get('is_director', False),
             is_profesor=validated_data.get('is_profesor', False)
         )
         return user
+
+
 
 class SubjectSerialize(serializers.ModelSerializer):
     class Meta:
