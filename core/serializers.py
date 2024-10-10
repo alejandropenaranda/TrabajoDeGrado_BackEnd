@@ -37,8 +37,6 @@ class UsuarioSerializer(serializers.ModelSerializer):
         )
         return user
 
-
-
 class SubjectSerialize(serializers.ModelSerializer):
     class Meta:
         model = Materia

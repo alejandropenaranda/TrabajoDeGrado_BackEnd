@@ -19,6 +19,8 @@ from io import BytesIO
 from collections import Counter
 from wordcloud import WordCloud
 import pandas as pd
+import re
+import json
 
 from .utils.fortalezas_debilidades.cual_fort_deb import laguageModel
 from .utils.procesar_evaluaciones.cualitativas import procesar_evaluaciones_cualitativas
@@ -64,37 +66,29 @@ def user_register(request):
 # Este metodo permite modificar los datos del usuario con el id ingresado - requiere ser admin
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])  # Verifica que haya un token y que el usuario esté autenticado
+@permission_classes([IsAuthenticated])
 def update_user_by_admin(request, user_id):
-    # Obtenemos el token de la cabecera de autorización
     token_key = request.auth
     token = get_object_or_404(Token, key=token_key)
 
-    # Obtenemos el usuario que está asociado con el token
     admin_user = token.user
 
-    # Verificamos si el usuario autenticado es administrador
     if not admin_user.is_admin:
         return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    # Buscamos el usuario que queremos modificar por su ID usando el modelo personalizado Usuario
     user = get_object_or_404(Usuario, id=user_id)
     serializer = UsuarioSerializer(user, data=request.data, partial=True)  # partial=True permite actualizaciones parciales
 
     if serializer.is_valid():
-        # Si se proporciona una nueva contraseña
         if 'password' in request.data:
-            # Encriptar la nueva contraseña
             user.set_password(request.data['password'])
-            user.save()  # Guardamos solo el usuario con la nueva contraseña encriptada
+            user.save() 
 
-        # Guardamos los demás campos del usuario sin incluir la contraseña
-        serializer.save(password=user.password)  # Guardamos el serializer sin sobrescribir la contraseña
-
+        serializer.save(password=user.password)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# Este metodo permite al usuario cambiar su propia contraseña de ingreso
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -106,40 +100,14 @@ def user_self_change_password(request):
     if user.codigo != request.data.get('cedula'):
         return Response({'error': 'No puede modificar la contraseña de otro usuario'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Validar y actualizar la contraseña
     new_password = request.data.get('password')
     if new_password:
         user.set_password(new_password)
-        user.save()  # Guardamos solo el usuario con la nueva contraseña encriptada
+        user.save()
 
     return Response({'message': 'Contraseña actualizada exitosamente'}, status=status.HTTP_200_OK)
 
-# Este metodo permite listar a todos los usuarios del sistema - requiere ser admin
-
-# @authentication_classes([TokenAuthentication])
-# @permission_classes([IsAuthenticated])
-# @api_view(['GET'])
-# def list_users_except_self(request):
-
-#     print("entre a la vista")
-#     # Obtenemos el token de la cabecera de autorización
-#     token_key = request.auth
-
-#     print(token_key)
-#     token = get_object_or_404(Token, key=token_key)
-
-#     current_user = token.user
-
-#     if not current_user.is_admin:
-#         return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
-
-#     users = Usuario.objects.exclude(id=current_user.id)
-
-#     serializer = UsuarioSerializer(users, many=True)
-
-#     # Retornar la lista de usuarios
-#     return Response(serializer.data, status=status.HTTP_200_OK)
-
+# Este metodo permite a los usuarios administradores obtener una lista que contiene a todos los usuarios menos a ellos mismos
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated]) 
@@ -147,25 +115,21 @@ def list_users_except_self(request):
     print("entre a la vista")
 
     current_user = request.user
-
-    # Verificar si el usuario no es administrador
     if not current_user.is_admin:
         return Response({'detail': 'Unauthorized. Admin access required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
     users = Usuario.objects.exclude(id=current_user.id)
-
     serializer = UsuarioSerializer(users, many=True)
 
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 # Este metodo retorna la información de ususario, requiere autenticación
-@api_view(['POST'])
+@api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def user_profile(request):
     serializer = UsuarioSerializer(instance=request.user)
     return Response({'user':serializer.data},status=status.HTTP_200_OK)
-
 
 # Este metodo retorna las calificaciones promedio de los docentes de la escuela ingresada o la información de un docente especifico
 @api_view(['GET'])
@@ -205,7 +169,6 @@ def get_cuant_fort_deb(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # Metodo que retorna el mejor y peor comentario del docente con el id ingresado:
 @api_view(['GET'])
 def get_best_and_worst_comment(request):
@@ -231,10 +194,6 @@ def get_best_and_worst_comment(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
-
-# Hay que evaluar que es mejor. que las fortalezas y desventajas cualitativas se generen dinamicamente o generarlas y tenerlas almacenadas en la base de datos y que cambien
-# cada vez que se de una actualización de datos?
-
 
 #Metodo que retorna el los promedios generales, cuantitativos y cualitativos del docente ingresado
 
@@ -267,29 +226,6 @@ def get_average_grades(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# Metodo que retorna el valor de calificación promedio de toda una escuela y el valor promedio de toda la facultad
-# @api_view(['GET'])
-# def get_average_grades_school_and_overall(request):
-#     try:
-#         escuela_id = request.query_params.get('escuela_id')
-#         if not escuela_id:
-#             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-#         promedio_general = PromedioCalificaciones.objects.aggregate(promedio=Avg('promedio'))['promedio']
-        
-#         promedio_escuela = PromedioCalificaciones.objects.filter(docente__escuela_id=escuela_id).aggregate(promedio=Avg('promedio'))['promedio']
-
-#         if promedio_escuela is None:
-#             promedio_escuela = 'No se encontraron calificaciones para la escuela proporcionada.'
-        
-#         return Response({
-#             'promedio_facultad': promedio_general,
-#             'promedio_escuela': promedio_escuela
-#         }, status=status.HTTP_200_OK)
-    
-#     except Exception as e:
-#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def get_average_grades_school_and_overall(request):
@@ -422,7 +358,7 @@ def get_cuantitative_average_grades(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
-# Metodo para enviar wordcloud
+# Metodo para generar y enviar un wordcloud en base 64 generado con las palabras mas repetidas en un texto
 def generate_wordcloud(text):
     wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text)
     buffer = BytesIO()
@@ -462,22 +398,6 @@ def get_wordcloud_and_frequent_words(request):
 
 # METODO PARA ESTRAER FORTALEZAS Y DEBILIDADES DE LOS COMENTARIOS USANDO MODELOS DE LENGUAJE.
 
-import re
-import json
-
-# def extraer_json(respuesta):
-#     json_match = re.search(r'\{.*\}', respuesta, re.DOTALL)
-#     print(json_match)
-#     if json_match:
-#         json_str = json_match.group()
-#         try:
-#             datos = json.loads(json_str)
-#             return datos
-#         except json.JSONDecodeError:
-#             return respuesta
-#     else:
-#         return respuesta 
-
 def extraer_json(respuesta):
     # Intentar buscar el bloque JSON dentro de la respuesta
     json_match = re.search(r'\{.*\}', respuesta, re.DOTALL)
@@ -496,51 +416,61 @@ def extraer_json(respuesta):
         # Si no encuentra JSON en la respuesta, retornar la respuesta original como error
         return {"error": "No se encontró un bloque JSON en la respuesta", "respuesta_original": respuesta}
 
-# openai.api_key = 'tu_api_key'
-enc = tiktoken.encoding_for_model("gpt-4")
 
-def contar_tokens(texto):
-    tokens = enc.encode(texto)
-    return len(tokens)
-
-def analizar_comentarios(comentarios):
+def analizar_comentarios(comentarios, max_reintentos=3, delay_reintento=2):
     prompt_base = (
-        "Analiza los siguientes comentarios sobre el desempeño de un docente. Identifica cuáles son las fortalezas y debilidades del docente y devuelve una estructura de datos que contenga las fortalezas y debilidades con un valor asignado de la siguiente escala: 1 es Muy Pobre, 2 es Pobre, 3 es Neutro, 4 es Bueno, y 5 es Muy Bueno.\n\n"
-        "Comentarios:\n"
+        """
+        Analiza los siguientes comentarios sobre el desempeño de un docente. 
+        Identifica cuáles son las fortalezas y oportunidades de mejora (debilidades) del docente y 
+        genera una estructura de datos en formato JSON similar a la que se indica a continuación.
+        Cada una de las fortalezas y oportunidades de mejora (debilidades) debe tener un valor asignado 
+        dentro de la siguiente escala: 1 siendo Muy Pobre, 2 siendo Pobre, 3 siendo Neutro, 4 siendo Bueno, y 5 siendo Muy Bueno".
+        Asegúrate de que el JSON tenga exactamente 5 fortalezas y 5 oportunidades de mejora, o menos si no es posible identificar todas. 
+        No agregues explicaciones adicionales fuera del formato JSON.
+
+        Comentarios del docente:
+        """
     )
-    prompt_ejemplo = "\nEstructura de datos esperada:\n{\n    \"fortalezas\": {\"fortaleza 1\": 4, \"fortaleza 2\": 5, ...},\n    \"debilidades\": {\"debilidad 1\": 2, \"debilidad 2\": 1, ...}\n}"
 
-    tokens_prompt = contar_tokens(prompt_base) + contar_tokens(prompt_ejemplo)
-    max_tokens = 6144
+    prompt_ejemplo = """ 
+        Formato de la respuesta esperada (en JSON):
+        {
+            "fortalezas": { "fortaleza 1": puntuación, "fortaleza 2": puntuación, "fortaleza 3": puntuación, "fortaleza 4": puntuación, "fortaleza 5": puntuación},
+            "debilidades": {"debilidad 1": puntuación, "debilidad 2": puntuación, "debilidad 3": puntuación, "debilidad 4": puntuación, "debilidad 5": puntuación}
+        }
+    """ 
 
-    comentarios_incluidos = []
-    tokens_comentarios = 0
+    comentarios_incluidos = "\n".join([f"{comentario}" for comentario in comentarios])
+    prompt = f"{prompt_base}\n{comentarios_incluidos}\n{prompt_ejemplo}"
 
-    for comentario in comentarios:
-        tokens_comentario = contar_tokens(comentario)
-        if tokens_prompt + tokens_comentarios + tokens_comentario < max_tokens:
-            comentarios_incluidos.append(comentario)
-            tokens_comentarios += tokens_comentario
-        else:
-            break
+    reintento = 0
+    while reintento < max_reintentos:
+        try:
+            respuesta_modelo = laguageModel(prompt)
+             # Extraer el JSON de la respuesta
 
-    prompt = prompt_base
-    for i, comentario in enumerate(comentarios_incluidos, 1):
-        prompt += f" {i}. {comentario}\n"
-    prompt += prompt_ejemplo
+            # Verificar si la respuesta es un simple eco del ejemplo proporcionado
+            if "fortaleza 1" in respuesta_modelo.lower() or "debilidad 1" in respuesta_modelo.lower():
+                raise ValueError("La respuesta parece ser un eco del ejemplo.")
 
-    response = extraer_json(laguageModel(prompt))
-    return prompt, response
+            respuesta_json = extraer_json(respuesta_modelo)
 
-    # response = openai.Completion.create(
-    #     engine="gpt-4",
-    #     prompt=prompt,
-    #     max_tokens=1500,
-    #     n=1,
-    #     stop=None,
-    #     temperature=0.7,
-    # )
-    # return response.choices[0].text.strip()
+            if "error" in respuesta_json:
+                raise ValueError(f"Error en la extracción del JSON: {respuesta_json['error']}")
+            
+            if "fortalezas" not in respuesta_json or "debilidades" not in respuesta_json:
+                raise ValueError("La estructura JSON no contiene las claves 'fortalezas' o 'debilidades'.")
+            
+            return prompt, respuesta_json
+        
+        except (json.JSONDecodeError, ValueError) as e:
+            reintento += 1
+            if reintento >= max_reintentos:
+                return prompt, {"error": f"Error al procesar los comentarios después de {max_reintentos} intentos: {str(e)}"}
+            else:
+                time.sleep(delay_reintento)
+
+    return prompt, {"error": "No se pudo obtener una respuesta válida después de varios intentos."}
 
 #Metodo que analiza los 10 comentario mas relevantes de cada docente y determina sus fortalezas y debilidades
 @api_view(['POST'])
@@ -647,8 +577,7 @@ def get_cual_fort_deb(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
-    # Metodo que retorna el top 10 mejores docentes por escuela
-
+# Metodo que retorna el top 10 de docentes con mejor promedio por escuela
 @api_view(['GET'])
 def get_top_10_docentes_by_school(request):
     try:
@@ -656,17 +585,14 @@ def get_top_10_docentes_by_school(request):
         if not escuela_id:
             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Filtrar docentes por escuela y asegurar que son profesores
         docentes = Usuario.objects.filter(escuela_id=escuela_id, is_profesor=True)
         
-        # Obtener el promedio de la columna 'promedio' para cada docente
         top_docentes = (
             PromedioCalificaciones.objects.filter(docente__in=docentes)
-            .values('docente__id', 'docente__nombre')  # Group by docente
-            .annotate(promedio_total=Avg('promedio'))  # Promediar la columna 'promedio' para cada docente
-            .order_by('-promedio_total')[:10]  # Ordenar de mayor a menor y obtener los primeros 10
+            .values('docente__id', 'docente__nombre')
+            .annotate(promedio_total=Avg('promedio'))
+            .order_by('-promedio_total')[:10]
         )
-
         if not top_docentes:
             return Response({'error': 'No se encontraron docentes para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -684,13 +610,11 @@ def get_teacher_average_grades_by_school(request):
         if not escuela_id:
             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Filtrar los docentes que pertenecen a la escuela especificada
         docentes_escuela = Usuario.objects.filter(escuela_id=escuela_id, is_profesor=True)
         
         if not docentes_escuela.exists():
             return Response({'error': 'No se encontraron docentes para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Obtener promedios individuales para cada docente
         promedios_docentes = []
         for docente in docentes_escuela:
             promedio_docente = PromedioCalificaciones.objects.filter(docente=docente).aggregate(
@@ -714,21 +638,17 @@ def get_teacher_average_grades_by_school(request):
 @api_view(['GET'])
 def get_school_average_grades(request):
     try:
-        # Obtener todas las escuelas registradas
         escuelas = Escuela.objects.all()
 
         if not escuelas.exists():
             return Response({'error': 'No se encontraron escuelas registradas.'}, status=status.HTTP_404_NOT_FOUND)
 
         resultados_escuelas = []
-
-        # Iterar sobre cada escuela
         for escuela in escuelas:
-            # Filtrar los docentes de la escuela
+
             docentes_escuela = Usuario.objects.filter(escuela=escuela, is_profesor=True)
 
             if docentes_escuela.exists():
-                # Calcular el promedio cuantitativo y cualitativo de todos los docentes de la escuela
                 promedio_escuela = PromedioCalificaciones.objects.filter(docente__in=docentes_escuela).aggregate(
                     promedio_cuant=Avg('promedio_cuant'),
                     promedio_cual=Avg('promedio_cual')
@@ -833,6 +753,7 @@ import json
 import time
 
 def analizar_comentarios_escuela(comentarios, max_reintentos=3, delay_reintento=1):
+    print("numero de comentarios: ", len(comentarios))
     prompt_base = (
         """Analiza los siguientes comentarios sobre el desempeño de los docentes de una escuela. 
         Identifica las fortalezas y oportunidades de mejora generales que tienen estos docentes y 
@@ -935,60 +856,60 @@ def find_strengths_weaknesses_school(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-def find_strengths_weaknesses_all_schools(request):
-    try:
-        escuelas = Escuela.objects.all()
+# @api_view(['POST'])
+# def find_strengths_weaknesses_all_schools(request):
+#     try:
+#         escuelas = Escuela.objects.all()
 
-        if not escuelas:
-            return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
+#         if not escuelas:
+#             return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
         
-        resultado_general = []
+#         resultado_general = []
 
-        for escuela in escuelas:
-            # Obtener los 20 comentarios con peor promedio (orden ascendente)
-            peores_comentarios = CalificacionesCualitativas.objects.filter(
-                docente__escuela=escuela
-            ).order_by('promedio')[:15]
+#         for escuela in escuelas:
+#             # Obtener los 20 comentarios con peor promedio (orden ascendente)
+#             peores_comentarios = CalificacionesCualitativas.objects.filter(
+#                 docente__escuela=escuela
+#             ).order_by('promedio')[:15]
 
-            # Obtener los 20 comentarios con mejor promedio (orden descendente)
-            mejores_comentarios = CalificacionesCualitativas.objects.filter(
-                docente__escuela=escuela
-            ).order_by('-promedio')[:15]
+#             # Obtener los 20 comentarios con mejor promedio (orden descendente)
+#             mejores_comentarios = CalificacionesCualitativas.objects.filter(
+#                 docente__escuela=escuela
+#             ).order_by('-promedio')[:15]
 
-            # Combinar ambos conjuntos de comentarios
-            comentarios = list(peores_comentarios) + list(mejores_comentarios)
+#             # Combinar ambos conjuntos de comentarios
+#             comentarios = list(peores_comentarios) + list(mejores_comentarios)
 
-            if comentarios:
-                # Pasar los comentarios combinados al método de análisis
-                prompt, resultado = analizar_comentarios_escuela(comentarios)
+#             if comentarios:
+#                 # Pasar los comentarios combinados al método de análisis
+#                 prompt, resultado = analizar_comentarios_escuela(comentarios)
 
-                # Crear o actualizar el registro de fortalezas y debilidades
-                registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
-                    escuela=escuela,
-                    defaults={'prompt': prompt, 'valoraciones': resultado}
-                )
+#                 # Crear o actualizar el registro de fortalezas y debilidades
+#                 registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+#                     escuela=escuela,
+#                     defaults={'prompt': prompt, 'valoraciones': resultado}
+#                 )
 
-                if not creado:
-                    registro.prompt = prompt
-                    registro.valoraciones = resultado
-                    registro.save()
+#                 if not creado:
+#                     registro.prompt = prompt
+#                     registro.valoraciones = resultado
+#                     registro.save()
 
-                # Añadir el resultado para esta escuela a la lista general
-                resultado_general.append({
-                    'escuela': escuela.nombre,
-                    'resultado': resultado
-                })
+#                 # Añadir el resultado para esta escuela a la lista general
+#                 resultado_general.append({
+#                     'escuela': escuela.nombre,
+#                     'resultado': resultado
+#                 })
 
-        if not resultado_general:
-            return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+#         if not resultado_general:
+#             return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({
-            'resultados': resultado_general
-        }, status=status.HTTP_200_OK)
+#         return Response({
+#             'resultados': resultado_general
+#         }, status=status.HTTP_200_OK)
 
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 # @api_view(['POST'])
 # def find_strengths_weaknesses_all_schools(request):
@@ -1057,6 +978,172 @@ def find_strengths_weaknesses_all_schools(request):
 #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+#Version buena
+# @api_view(['POST'])
+# def find_strengths_weaknesses_all_schools(request):
+#     try:
+#         escuelas = Escuela.objects.all()
+#         if not escuelas:
+#             return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
+        
+#         resultado_general = []
+#         for escuela in escuelas:
+#             docentes = Usuario.objects.filter(escuela=escuela, is_profesor=True)
+#             if not docentes:
+#                 continue 
+
+#             # Filtrar los docentes que tienen registros en la tabla PromedioCalificaciones
+#             promedios = PromedioCalificaciones.objects.filter(docente__in=docentes).values('docente').annotate(promedio_cual=Avg('promedio_cual')).order_by('-promedio_cual')
+
+#             # Obtener los 10 docentes con mayor promedio cualitativo
+#             top_10_docentes = promedios[:10]
+#             # Obtener los 10 docentes con menor promedio cualitativo
+#             bottom_10_docentes = promedios.reverse()[:10]
+
+#             # Unir los docentes seleccionados
+#             docentes_seleccionados = list(top_10_docentes) + list(bottom_10_docentes)
+
+#             comentarios_por_escuela = []
+
+#             for docente in docentes_seleccionados:
+#                 # Obtener el objeto Usuario del docente
+#                 docente_obj = Usuario.objects.get(id=docente['docente'])
+
+#                 # Obtener los peores comentarios del docente (orden ascendente)
+#                 peores_comentarios = CalificacionesCualitativas.objects.filter(
+#                     docente=docente_obj
+#                 ).order_by('promedio')[:1]
+
+#                 # Obtener los mejores comentarios del docente (orden descendente)
+#                 mejores_comentarios = CalificacionesCualitativas.objects.filter(
+#                     docente=docente_obj
+#                 ).order_by('-promedio')[:1]
+
+#                 # Combinar ambos conjuntos de comentarios
+#                 comentarios = list(peores_comentarios) + list(mejores_comentarios)
+
+#                 # Añadir los comentarios del docente a la lista de comentarios por escuela
+#                 comentarios_por_escuela.extend(comentarios)
+
+#             if comentarios_por_escuela:
+#                 # Pasar todos los comentarios de la escuela al método de análisis
+#                 prompt, resultado = analizar_comentarios_escuela(comentarios_por_escuela)
+
+#                 # Crear o actualizar el registro de fortalezas y debilidades
+#                 registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+#                     escuela=escuela,
+#                     defaults={'prompt': prompt, 'valoraciones': resultado}
+#                 )
+
+#                 if not creado:
+#                     registro.prompt = prompt
+#                     registro.valoraciones = resultado
+#                     registro.save()
+
+#                 # Añadir el resultado para esta escuela a la lista general
+#                 resultado_general.append({
+#                     'escuela': escuela.nombre,
+#                     'resultado': resultado
+#                 })
+
+#         if not resultado_general:
+#             return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+#         return Response({
+#             'resultados': resultado_general
+#         }, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def find_strengths_weaknesses_all_schools(request):
+    try:
+        escuelas = Escuela.objects.all()
+
+        if not escuelas:
+            return Response({'error': 'No se encontraron escuelas.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        resultado_general = []
+
+        for escuela in escuelas:
+            docentes = Usuario.objects.filter(escuela=escuela, is_profesor=True)
+
+            if not docentes:
+                continue  
+
+            promedios = PromedioCalificaciones.objects.filter(docente__in=docentes).values('docente').annotate(promedio_cual=Avg('promedio_cual')).order_by('-promedio_cual')
+
+            # Obtener los 10 docentes con mayor promedio cualitativo
+            top_10_docentes = promedios[:10]
+            # Obtener los 10 docentes con menor promedio cualitativo
+            bottom_10_docentes = promedios.reverse()[:10]
+
+            # Unir los docentes seleccionados
+            seleccionados = list(top_10_docentes) + list(bottom_10_docentes)
+            total_docentes = len(seleccionados)
+
+            # Si hay menos de 20 docentes, ajustamos la cantidad de comentarios a tomar
+            comentarios_por_docente = 1  # Por defecto 1 comentario (mejor y peor) por docente
+            if total_docentes < 20:
+                print('menos de 20 docentes')
+                comentarios_por_docente = (40 // total_docentes)  # Dividir para obtener más comentarios por docente
+
+            comentarios_por_escuela = []
+
+            for docente in seleccionados:
+                # Obtener el objeto Usuario del docente
+                docente_obj = Usuario.objects.get(id=docente['docente'])
+
+                # Obtener los peores comentarios del docente (orden ascendente)
+                peores_comentarios = CalificacionesCualitativas.objects.filter(
+                    docente=docente_obj
+                ).order_by('promedio')[:comentarios_por_docente]
+
+                # Obtener los mejores comentarios del docente (orden descendente)
+                mejores_comentarios = CalificacionesCualitativas.objects.filter(
+                    docente=docente_obj
+                ).order_by('-promedio')[:comentarios_por_docente]
+
+                # Combinar ambos conjuntos de comentarios
+                comentarios = list(peores_comentarios) + list(mejores_comentarios)
+
+                # Añadir los comentarios del docente a la lista de comentarios por escuela
+                comentarios_por_escuela.extend(comentarios)
+
+            # Ajustar la cantidad de comentarios si excede los 40
+            comentarios_por_escuela = comentarios_por_escuela[:40]
+
+            if comentarios_por_escuela:
+                # Pasar todos los comentarios de la escuela al método de análisis
+                prompt, resultado = analizar_comentarios_escuela(comentarios_por_escuela)
+
+                # Crear o actualizar el registro de fortalezas y debilidades
+                registro, creado = FortalezasDebilidadesEscula.objects.get_or_create(
+                    escuela=escuela,
+                    defaults={'prompt': prompt, 'valoraciones': resultado}
+                )
+
+                if not creado:
+                    registro.prompt = prompt
+                    registro.valoraciones = resultado
+                    registro.save()
+
+                # Añadir el resultado para esta escuela a la lista general
+                resultado_general.append({
+                    'escuela': escuela.nombre,
+                    'resultado': resultado
+                })
+
+        if not resultado_general:
+            return Response({'error': 'No se encontraron comentarios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            'resultados': resultado_general
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

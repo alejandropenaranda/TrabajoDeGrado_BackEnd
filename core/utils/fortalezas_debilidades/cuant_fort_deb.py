@@ -55,11 +55,10 @@ def identificar_fortalezas_debilidades_cuant():
         )
 
 def calificar_fortaleza_debilidad(calificacion):
-    # Define el criterio para determinar fortalezas y debilidades
     if calificacion >= 0 and calificacion <= 1.9:
-        return 'deb_MP' # cambiar
+        return 'deb_MP'
     elif calificacion >= 2 and calificacion <= 2.9:
-        return 'deb_P' #cambiar
+        return 'deb_P'
     elif calificacion >= 3.8 and calificacion <= 4.5:
         return 'fort_B'
     elif calificacion >= 4.6 and calificacion <= 5:
