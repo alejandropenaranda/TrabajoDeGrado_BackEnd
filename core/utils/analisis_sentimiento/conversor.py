@@ -30,9 +30,8 @@ def conversor_calificacion_lxyuan(input): # Tomado de ChatGPT con este promt: "c
 
 def conversor_calificacion_citizenlab(input): # Tomado de ChatGPT con este promt: "como puedo convertir esto en una calificación entre 1 y 5 en pyhon: [{'label': 'negative', 'score': 0.8265820741653442}, {'label': 'neutral', 'score': 0.1026858240365982}, {'label': 'positive', 'score': 0.07073213160037994}]"
   scores = input
-  weights = {'Negative': 1, 'Neutral': 3, 'Positive': 5}  # Por ejemplo, asignamos mayor peso a 'positive'
+  weights = {'Negative': 1, 'Neutral': 3, 'Positive': 5}
 
-  # Inicializamos la variable para la suma ponderada
   weighted_sum = 0
 
   for score in scores:

@@ -50,6 +50,8 @@ def user_login(request):
 
 # Este metodo se utiliza para registrar nuevos usuarios. Requiere autenticación
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def user_register(request):
     serializer = UsuarioSerializer(data=request.data)
     if serializer.is_valid():
@@ -133,6 +135,8 @@ def user_profile(request):
 
 # Este metodo retorna las calificaciones promedio de los docentes de la escuela ingresada o la información de un docente especifico
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_average_grades_registers(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -155,6 +159,8 @@ def get_average_grades_registers(request):
     
 # Este metodo retorna las fortalezas y debilidades cuantitaticas del docente con el id engresado   
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_cuant_fort_deb(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -171,6 +177,8 @@ def get_cuant_fort_deb(request):
 
 # Metodo que retorna el mejor y peor comentario del docente con el id ingresado:
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_best_and_worst_comment(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -198,6 +206,8 @@ def get_best_and_worst_comment(request):
 #Metodo que retorna el los promedios generales, cuantitativos y cualitativos del docente ingresado
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_average_grades(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -228,6 +238,8 @@ def get_average_grades(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_average_grades_school_and_overall(request):
     try:
         escuela_id = request.query_params.get('escuela_id')
@@ -474,6 +486,8 @@ def analizar_comentarios(comentarios, max_reintentos=3, delay_reintento=2):
 
 #Metodo que analiza los 10 comentario mas relevantes de cada docente y determina sus fortalezas y debilidades
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def find_strengths_weaknesses(request):
     try:
         #docente_id = request.query_params.get('docente_id')
@@ -514,6 +528,8 @@ def find_strengths_weaknesses(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def find_strengths_weaknesses_all_teachers(request):
     try:
         docentes = Usuario.objects.all()
@@ -551,6 +567,8 @@ def find_strengths_weaknesses_all_teachers(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_cual_fort_deb(request):
     try:
         docente_id = request.query_params.get('docente_id')
@@ -579,6 +597,8 @@ def get_cual_fort_deb(request):
 
 # Metodo que retorna el top 10 de docentes con mejor promedio por escuela
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_top_10_docentes_by_school(request):
     try:
         escuela_id = request.query_params.get('escuela_id')
@@ -604,6 +624,8 @@ def get_top_10_docentes_by_school(request):
 # Metodo que retorna los promedios cualitativos y cuentitativos de todos los docentes de una escuela.
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_teacher_average_grades_by_school(request):
     try:
         escuela_id = request.query_params.get('escuela_id')
@@ -636,6 +658,8 @@ def get_teacher_average_grades_by_school(request):
 # Metodo que retorna los promedios cualitativos y cuantitativos de todos las escuelas de la facultad
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_school_average_grades(request):
     try:
         escuelas = Escuela.objects.all()
@@ -811,6 +835,8 @@ def analizar_comentarios_escuela(comentarios, max_reintentos=3, delay_reintento=
 
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def find_strengths_weaknesses_school(request):
     try:
         escuela_id = request.data.get('escuela_id')
@@ -1057,6 +1083,8 @@ def find_strengths_weaknesses_school(request):
 #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def find_strengths_weaknesses_all_schools(request):
     try:
         escuelas = Escuela.objects.all()
@@ -1147,6 +1175,8 @@ def find_strengths_weaknesses_all_schools(request):
 
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_school_fort_deb(request):
     try:
         escuela_id = request.query_params.get('escuela_id')
@@ -1175,6 +1205,8 @@ def get_school_fort_deb(request):
 # Metodo que recibe, almacena y procesa los archivos de las valoraciones cualitativas
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def upload_qualitative_evaluations(request):
     parser_classes = (MultiPartParser, FormParser)
     
@@ -1214,6 +1246,8 @@ def upload_qualitative_evaluations(request):
 # Metodo que recibe, almacena y procesa los archivos de las valoraciones cuantitativas
 
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def upload_quantitative_evaluations(request):
     parser_classes = (MultiPartParser, FormParser)
     
@@ -1254,6 +1288,8 @@ def upload_quantitative_evaluations(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
 def get_Schools(request):
     try:
         # Obtener todas las escuelas
