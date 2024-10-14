@@ -49,7 +49,9 @@ urlpatterns = [
 
     # Estos son las urls para los graficos de barras
     path('core/prom_fac_escuela', views.get_average_grades_school_and_overall),
+
     path('core/cual_prom', views.get_qualitative_average_grades),
+    
     path('core/cuant_prom', views.get_cuantitative_average_grades),
 
     path('core/analizar_comentarios', views.get_wordcloud_and_frequent_words),
