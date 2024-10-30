@@ -39,6 +39,9 @@ def user_login(request):
             user = Usuario.objects.get(email=serializer.validated_data['email'])
         except Usuario.DoesNotExist:
             return Response({"error": "Credenciales incorrectas"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not user.is_active:
+            return Response({"error": "Este usuario ha sido desactivado, comuníquese con el administrador del sistema para gestionar su ingreso"}, status=status.HTTP_403_FORBIDDEN)
 
         if not user.check_password(serializer.validated_data['password']):
             return Response({"error": "Credenciales incorrectas"}, status=status.HTTP_400_BAD_REQUEST)
@@ -47,6 +50,7 @@ def user_login(request):
 
         user_serializer = UsuarioSerializer(instance=user)
         return Response({'token': token.key, 'user': user_serializer.data}, status=status.HTTP_200_OK)
+    
     return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 #-------------------------------------------------------------------
