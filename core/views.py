@@ -665,16 +665,29 @@ def get_top_10_docentes_by_school(request):
         
         docentes = Usuario.objects.filter(escuela_id=escuela_id, is_profesor=True)
         
-        top_docentes = (
+        # Top 10 docentes con mejores calificaciones
+        top_mejores_docentes = (
             PromedioCalificaciones.objects.filter(docente__in=docentes)
             .values('docente__id', 'docente__nombre')
             .annotate(promedio_total=Avg('promedio'))
             .order_by('-promedio_total')[:10]
         )
-        if not top_docentes:
+        
+        # Top 10 docentes con peores calificaciones
+        top_peores_docentes = (
+            PromedioCalificaciones.objects.filter(docente__in=docentes)
+            .values('docente__id', 'docente__nombre')
+            .annotate(promedio_total=Avg('promedio'))
+            .order_by('promedio_total')[:10]
+        )
+        
+        if not top_mejores_docentes and not top_peores_docentes:
             return Response({'error': 'No se encontraron docentes para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(list(top_docentes), status=status.HTTP_200_OK)
+        return Response({
+            'top_best': list(top_mejores_docentes),
+            'top_worst': list(top_peores_docentes)
+        }, status=status.HTTP_200_OK)
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
