@@ -30,6 +30,7 @@ def sentimiento1_marianna13(comentario):
       for i, score in enumerate(predicted_probs)
   ]
 
+  # print("Mariana 13", output_dict)
   procesado = convertir_a_calificacion_5_estrellas(output_dict)
 
   return procesado
@@ -60,6 +61,7 @@ def sentimiento2_nlptown(comentario):
       for i, score in enumerate(predicted_probs)
   ]
 
+  # print("nlptown", output_dict)
   procesado = convertir_a_calificacion_5_estrellas(output_dict)
 
   return procesado
@@ -77,6 +79,8 @@ def sentimiento3_lxyuan(comentario):
 
   result = distilled_student_sentiment_classifier(comentario)
 
+  # print("lxyuan", result[0])
+
   output = conversor_calificacion_lxyuan(result[0])
 
   return output
@@ -92,6 +96,9 @@ def sentimiento4_pysentimiento(comentario):
   analyzer = create_analyzer(task="sentiment", lang="es")
   result = analyzer.predict(comentario)
   resultado = formatear(result.probas)
+
+  # print("pysentimiento", resultado)
+
   output = conversor_calificacion_lxyuan(resultado)
   return output
 
@@ -119,6 +126,8 @@ def sentimiento5_citizenlab(comentario):
       {"label": sentiment_labels[i], "score": score}
       for i, score in enumerate(predicted_probs)
   ]
+
+  # print("citizenlab", output_dict)
 
   output = conversor_calificacion_citizenlab(output_dict)
 

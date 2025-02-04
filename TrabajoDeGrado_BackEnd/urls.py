@@ -78,6 +78,10 @@ urlpatterns = [
 
     path('core/average_grades_faculty', views.get_school_average_grades),
 
+    path('core/average_grades_faculty_box', views.get_school_boxplot_data),
+
     path('core/schools', views.get_Schools),
+
+    path('core/test', views.analisar_sentimiento),
 
 ]

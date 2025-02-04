@@ -1,6 +1,7 @@
 from core.models import CalificacionesCualitativas, Usuario, Materia, Escuela
 from core.utils.analisis_sentimiento.sa_models import sentimiento1_marianna13, sentimiento2_nlptown, sentimiento3_lxyuan, sentimiento4_pysentimiento, sentimiento5_citizenlab
 from core.utils.limpiar_texto.limpiador_texto import cleaner
+from core.utils.calificaciones_promedio.generar_promedios import calcular_promedios
 
 #Metodo mediante el cual se filtran y eliminan registros donde los comentarios no estan dirigidos al desempeño del docente
 def filtro_comentarios(df):
@@ -105,6 +106,22 @@ def aplicar_analisis_de_sentimientos():
         registro.promedio = promedio
         registro.save()
 
+def analisar_sentimiento_comentario(comentario):
+    resultado1 = sentimiento1_marianna13(comentario)
+    resultado2 = sentimiento2_nlptown(comentario)
+    resultado3 = sentimiento3_lxyuan(comentario)
+    resultado4 = sentimiento4_pysentimiento(comentario)
+    resultado5 = sentimiento5_citizenlab(comentario)
+
+    # print("Mariana norm: ", resultado1)
+    # print("nlp norm: ", resultado2)
+    # print("lxy norm: ", resultado3)
+    # print("pysen norm: ", resultado4)
+    # print("citi norm: ", resultado5)
+    promedio = (resultado1 + resultado2 + resultado3 + resultado4 + resultado5) / 5
+    # print(promedio)
+    return promedio
+
 def limpiar_comentarios():
     calificaciones = CalificacionesCualitativas.objects.filter(comentario_limpio__isnull=True)
     for calificacion in calificaciones:
@@ -120,4 +137,4 @@ def procesar_evaluaciones_cualitativas(df):
     filtrar_y_almacenar_datos(df)
     aplicar_analisis_de_sentimientos()
     limpiar_comentarios()
-    # calcular_promedios()
+    calcular_promedios()

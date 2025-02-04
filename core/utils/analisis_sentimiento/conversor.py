@@ -9,9 +9,9 @@ def convertir_a_calificacion_5_estrellas(calificacion):
   calificacion_escalada = calificacion_normalizada * 4 + 1  # Escalamos al rango de 1 a 5
   return calificacion_escalada
 
-def conversor_calificacion_lxyuan(input): # Tomado de ChatGPT con este promt: "como puedo convertir esto en una calificación entre 1 y 5 en pyhon: [{'label': 'negative', 'score': 0.8265820741653442}, {'label': 'neutral', 'score': 0.1026858240365982}, {'label': 'positive', 'score': 0.07073213160037994}]"
+def conversor_calificacion_lxyuan(input):
   scores = input
-  weights = {'negative': 1, 'neutral': 3, 'positive': 5}  # Por ejemplo, asignamos mayor peso a 'positive'
+  weights = {'negative': 1, 'neutral': 3, 'positive': 5}
 
   # Inicializamos la variable para la suma ponderada
   weighted_sum = 0
@@ -28,7 +28,7 @@ def conversor_calificacion_lxyuan(input): # Tomado de ChatGPT con este promt: "c
 
   return normalized_weighted_sum
 
-def conversor_calificacion_citizenlab(input): # Tomado de ChatGPT con este promt: "como puedo convertir esto en una calificación entre 1 y 5 en pyhon: [{'label': 'negative', 'score': 0.8265820741653442}, {'label': 'neutral', 'score': 0.1026858240365982}, {'label': 'positive', 'score': 0.07073213160037994}]"
+def conversor_calificacion_citizenlab(input):
   scores = input
   weights = {'Negative': 1, 'Neutral': 3, 'Positive': 5}
 

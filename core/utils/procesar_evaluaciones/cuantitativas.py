@@ -1,5 +1,6 @@
 from core.models import CalificacionesCuantitativas, Usuario, Materia, Escuela
 from core.utils.calificaciones_promedio.generar_promedios import calcular_promedios
+from core.utils.fortalezas_debilidades.cuant_fort_deb import identificar_fortalezas_debilidades_cuant
 
 def insertar_calif_cuantitativas(df):
     for index, row in df.iterrows():
@@ -10,18 +11,18 @@ def insertar_calif_cuantitativas(df):
         codigo_materia = row['CODIGO_MATERIA']
         nombre_materia = row['MATERIA']
         promedio = row['PROM_DOCENTE']
-        pregunta_9 = row['PROM_PREGUNTA9']
-        pregunta_10 = row['PROM_PREGUNTA10']
-        pregunta_11 = row['PROM_PREGUNTA11']
-        pregunta_12 = row['PROM_PREGUNTA12']
-        pregunta_13 = row['PROM_PREGUNTA13']
-        pregunta_14 = row['PROM_PREGUNTA14']
-        pregunta_15 = row['PROM_PREGUNTA15']
-        pregunta_16 = row['PROM_PREGUNTA16']
-        pregunta_17 = row['PROM_PREGUNTA17']
-        pregunta_18 = row['PROM_PREGUNTA18']
-        pregunta_19 = row['PROM_PREGUNTA19']
-        pregunta_20 = row['PROM_PREGUNTA20']
+        pregunta_9 = row['PREGUNTA9']
+        pregunta_10 = row['PREGUNTA10']
+        pregunta_11 = row['PREGUNTA11']
+        pregunta_12 = row['PREGUNTA12']
+        pregunta_13 = row['PREGUNTA13']
+        pregunta_14 = row['PREGUNTA14']
+        pregunta_15 = row['PREGUNTA15']
+        pregunta_16 = row['PREGUNTA16']
+        pregunta_17 = row['PREGUNTA17']
+        pregunta_18 = row['PREGUNTA18']
+        pregunta_19 = row['PREGUNTA19']
+        pregunta_20 = row['PREGUNTA20']
 
         try:
             escuela = Escuela.objects.get(nombre=nombre_escuela)
@@ -67,4 +68,5 @@ def insertar_calif_cuantitativas(df):
 
 def procesar_evaluaciones_cuantitativas(df):
     insertar_calif_cuantitativas(df)
-    # calcular_promedios()
+    calcular_promedios()
+    identificar_fortalezas_debilidades_cuant()

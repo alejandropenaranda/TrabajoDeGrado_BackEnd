@@ -692,6 +692,56 @@ def get_top_10_docentes_by_school(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+# @api_view(['GET'])
+# @authentication_classes([TokenAuthentication])
+# @permission_classes([IsAuthenticated])  
+# def get_top_10_docentes_by_school(request):
+#     try:
+#         escuela_id = request.query_params.get('escuela_id')
+#         if not escuela_id:
+#             return Response({'error': 'El parámetro escuela_id es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         docentes = Usuario.objects.filter(escuela_id=escuela_id, is_profesor=True)
+
+#         resultados = []
+#         for docente in docentes:
+#             calificaciones = PromedioCalificaciones.objects.filter(docente=docente)
+
+#             promedio_cual = calificaciones.filter(promedio_cual__gt=0).aggregate(promedio_cual=Avg('promedio_cual'))['promedio_cual']
+#             promedio_cuant = calificaciones.filter(promedio_cuant__gt=0).aggregate(promedio_cuant=Avg('promedio_cuant'))['promedio_cuant']
+
+#             if promedio_cual is not None and promedio_cuant is not None:
+#                 promedio_total = (promedio_cual + promedio_cuant) / 2
+#             elif promedio_cual is not None:
+#                 promedio_total = promedio_cual
+#             elif promedio_cuant is not None:
+#                 promedio_total = promedio_cuant
+#             else:
+#                 promedio_total = 0  # En caso de que no haya calificaciones
+
+#             resultados.append({
+#                 'docente__id': docente.id,
+#                 'docente__nombre': docente.nombre,
+#                 'promedio_total': promedio_total
+#             })
+
+#         # Top 10 docentes con mejores calificaciones
+#         top_mejores_docentes = sorted(resultados, key=lambda x: x['promedio_total'], reverse=True)[:10]
+
+#         # Top 10 docentes con peores calificaciones
+#         top_peores_docentes = sorted(resultados, key=lambda x: x['promedio_total'])[:10]
+
+#         if not top_mejores_docentes and not top_peores_docentes:
+#             return Response({'error': 'No se encontraron docentes para la escuela proporcionada.'}, status=status.HTTP_404_NOT_FOUND)
+
+#         return Response({
+#             'top_best': top_mejores_docentes,
+#             'top_worst': top_peores_docentes
+#         }, status=status.HTTP_200_OK)
+
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 #----------------------------------------------------------------------------------------------------
 # Metodo que retorna los promedios cualitativos y cuentitativos de todos los docentes de una escuela.
 #----------------------------------------------------------------------------------------------------
@@ -766,6 +816,101 @@ def get_school_average_grades(request):
 
         if not resultados_escuelas:
             return Response({'error': 'No se encontraron promedios para ninguna escuela.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(resultados_escuelas, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+import numpy as np
+    
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])  
+def get_school_boxplot_data(request):
+    try:
+        escuelas = Escuela.objects.all()
+
+        if not escuelas.exists():
+            return Response({'error': 'No se encontraron escuelas registradas.'}, status=status.HTTP_404_NOT_FOUND)
+
+        resultados_escuelas = []
+        for escuela in escuelas:
+            docentes_escuela = Usuario.objects.filter(escuela=escuela, is_profesor=True)
+
+            if docentes_escuela.exists():
+                # Calificaciones cuantitativas
+                calificaciones_cuant = list(PromedioCalificaciones.objects.filter(
+                    docente__in=docentes_escuela,
+                    promedio_cuant__gt=0
+                ).values_list('promedio_cuant', flat=True))
+                
+                cuantitativo_data = {}
+                if calificaciones_cuant:
+                    q1 = np.percentile(calificaciones_cuant, 25)
+                    q3 = np.percentile(calificaciones_cuant, 75)
+                    median = np.median(calificaciones_cuant)
+                    iqr = q3 - q1
+
+                    lower_bound = q1 - 1.5 * iqr
+                    upper_bound = q3 + 1.5 * iqr
+
+                    # Filtrar valores dentro de los límites para obtener min y max correctos
+                    valores_dentro_rango = [x for x in calificaciones_cuant if lower_bound <= x <= upper_bound]
+
+                    cuantitativo_data = {
+                        'min': float(min(valores_dentro_rango)) if valores_dentro_rango else None,
+                        'q1': float(q1),
+                        'median': float(median),
+                        'q3': float(q3),
+                        'max': float(max(valores_dentro_rango)) if valores_dentro_rango else None,
+                        'lower_bound': float(lower_bound),
+                        'upper_bound': float(upper_bound),
+                        'outliers': [float(x) for x in calificaciones_cuant if x < lower_bound or x > upper_bound]
+                    }
+                else:
+                    cuantitativo_data = 'No se encontraron calificaciones cuantitativas.'
+
+                # Calificaciones cualitativas
+                calificaciones_cual = list(PromedioCalificaciones.objects.filter(
+                    docente__in=docentes_escuela,
+                    promedio_cual__gt=0
+                ).values_list('promedio_cual', flat=True))
+                
+                cualitativo_data = {}
+                if calificaciones_cual:
+                    q1_c = np.percentile(calificaciones_cual, 25)
+                    q3_c = np.percentile(calificaciones_cual, 75)
+                    median_c = np.median(calificaciones_cual)
+                    iqr_c = q3_c - q1_c
+
+                    lower_bound_c = q1_c - 1.5 * iqr_c
+                    upper_bound_c = q3_c + 1.5 * iqr_c
+
+                    # Filtrar valores dentro de los límites para obtener min y max correctos
+                    valores_dentro_rango_c = [x for x in calificaciones_cual if lower_bound_c <= x <= upper_bound_c]
+
+                    cualitativo_data = {
+                        'min': float(min(valores_dentro_rango_c)) if valores_dentro_rango_c else None,
+                        'q1': float(q1_c),
+                        'median': float(median_c),
+                        'q3': float(q3_c),
+                        'max': float(max(valores_dentro_rango_c)) if valores_dentro_rango_c else None,
+                        'lower_bound': float(lower_bound_c),
+                        'upper_bound': float(upper_bound_c),
+                        'outliers': [float(x) for x in calificaciones_cual if x < lower_bound_c or x > upper_bound_c]
+                    }
+                else:
+                    cualitativo_data = 'No se encontraron calificaciones cualitativas.'
+
+                resultados_escuelas.append({
+                    'escuela': escuela.nombre,
+                    'cuantitativo': cuantitativo_data,
+                    'cualitativo': cualitativo_data
+                })
+
+        if not resultados_escuelas:
+            return Response({'error': 'No se encontraron calificaciones suficientes para generar el BoxPlot.'}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(resultados_escuelas, status=status.HTTP_200_OK)
 
@@ -1356,10 +1501,10 @@ def upload_quantitative_evaluations(request):
         df = pd.read_excel(file)
 
         # Validar estructura del archivo
-        required_columns = ['SEMESTRE', 'DOCENTE', 'CEDULA', 'ESCUELA', 'PROM_PREGUNTA9', 'PROM_PREGUNTA10',
-                            'PROM_PREGUNTA11', 'PROM_PREGUNTA12', 'PROM_PREGUNTA13', 'PROM_PREGUNTA14', 
-                            'PROM_PREGUNTA15', 'PROM_PREGUNTA16', 'PROM_PREGUNTA17', 'PROM_PREGUNTA18',    
-                            'PROM_PREGUNTA19', 'PROM_PREGUNTA20', 'PROM_DOCENTE', 'MATERIA', 'CODIGO_MATERIA']
+        required_columns = ['SEMESTRE', 'DOCENTE', 'CEDULA', 'ESCUELA', 'PREGUNTA9', 'PREGUNTA10',
+                            'PREGUNTA11', 'PREGUNTA12', 'PREGUNTA13', 'PREGUNTA14', 
+                            'PREGUNTA15', 'PREGUNTA16', 'PREGUNTA17', 'PREGUNTA18',    
+                            'PREGUNTA19', 'PREGUNTA20', 'PROM_DOCENTE', 'MATERIA', 'CODIGO_MATERIA']
         if not all(column in df.columns for column in required_columns):
             return Response({"error": "El archivo no contiene la estructura esperada"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1398,3 +1543,22 @@ def get_Schools(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+
+from .utils.procesar_evaluaciones.cualitativas import analisar_sentimiento_comentario # Asegúrate de tener la función importada correctamente
+
+@api_view(['POST'])
+def analisar_sentimiento(request):
+    # Verifica si 'comentario' está presente en los datos del request
+    comentario = request.data.get('comentario')
+
+    if not comentario:
+        return Response({"error": "Comentario no proporcionado"}, status=400)
+
+    # Llama a la función para analizar el sentimiento del comentario
+    resultado = analisar_sentimiento_comentario(comentario)
+
+    # Devuelve la respuesta con el resultado
+    return Response({"resultado": resultado})
+
